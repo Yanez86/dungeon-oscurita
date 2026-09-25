@@ -73,6 +73,7 @@ func _test_assets() -> void:
 		"pillar": Vector3i(6, 24, 6), "door_frame": Vector3i(16, 24, 4), "door_leaf": Vector3i(8, 17, 3),
 		"barrel_small": Vector3i(6, 7, 6), "crate_large": Vector3i(7, 7, 7), "trunk_small_a": Vector3i(7, 5, 5),
 		"candle": Vector3i(3, 5, 3), "wall_torch": Vector3i(3, 6, 8),
+		"item_torch": Vector3i(3, 10, 3), "item_flint": Vector3i(5, 2, 3),
 	}
 	for model in expected:
 		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel

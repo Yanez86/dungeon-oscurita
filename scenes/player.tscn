@@ -26,5 +26,5 @@ fov = 70.0
 near = 0.05
 
 [node name="Torch" type="OmniLight3D" parent="Head"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, -0.25, -0.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.26, -0.2, -0.62)
 script = ExtResource("3_torch")

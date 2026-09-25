@@ -6,6 +6,7 @@ extends RefCounted
 
 const DIR := "res://assets/voxels/"
 const VOXEL_SIZE := 0.125  ## metri per voxel: una cella da 2 m è larga 16 voxel
+const ITEM_VOXEL_SIZE := 0.0625  ## oggetti piccoli (modelli "item_*"): voxel da 6,25 cm, altrimenti sarebbero due blocchetti
 
 static var _meshes: Dictionary[StringName, Mesh] = {}
 static var _material: StandardMaterial3D
@@ -14,7 +15,7 @@ static var _material: StandardMaterial3D
 static func mesh(model: StringName) -> Mesh:
 	if not _meshes.has(model):
 		var vox := VoxModel.load_file(DIR + model + ".vox")
-		_meshes[model] = VoxelMesher.build(vox, VOXEL_SIZE) if vox else BoxMesh.new()
+		_meshes[model] = VoxelMesher.build(vox, voxel_size(model)) if vox else BoxMesh.new()
 	return _meshes[model]
 
 
@@ -34,3 +35,8 @@ static func instance(model: StringName) -> MeshInstance3D:
 	mi.mesh = mesh(model)
 	mi.material_override = material()
 	return mi
+
+
+## Lato di un voxel del modello: gli oggetti che si raccolgono ("item_*") hanno voxel più piccoli.
+static func voxel_size(model: StringName) -> float:
+	return ITEM_VOXEL_SIZE if String(model).begins_with("item_") else VOXEL_SIZE

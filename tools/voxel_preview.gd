@@ -1,13 +1,14 @@
 extends Node
 ## Screenshot di controllo dei modelli voxel (serve la grafica: niente --headless).
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
-## Salva gallery.png (muri, pavimenti, porta), props.png (arredi e torcia), room.png (stanza d'ingresso), door.png (una porta) e decoration.png (un arredo).
+## Salva gallery.png (muri, pavimenti, porta), props.png (arredi e torcia), room.png (stanza d'ingresso), door.png (una porta), decoration.png (un arredo),
+## pickup.png (oggetti a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
 	&"ceiling", &"wall_a", &"wall_cracked", &"wall_shelves", &"pillar", &"door_frame", &"door_leaf"]
 const PROPS: Array[StringName] = [&"barrel_small", &"barrel_large", &"barrel_stack", &"keg", &"crate_small", &"crate_large",
 	&"crate_decorated", &"crates_stacked", &"trunk_small_a", &"trunk_small_b", &"trunk_medium_a", &"trunk_medium_b",
-	&"candle", &"candle_triple", &"candle_melted", &"wall_torch"]
+	&"candle", &"candle_triple", &"candle_melted", &"wall_torch", &"item_torch", &"item_flint"]
 
 var _out := "user://"
 var _seed := 12345
@@ -69,6 +70,24 @@ func _run() -> void:
 		cam.position = dp - wall_dir.normalized() * 2.2 + Vector3(0, 1.4, 0)
 		cam.look_at(dp + wall_dir.normalized() * 0.5 + Vector3(0, 0.4, 0))
 		await _shot("decoration.png")
+
+	# Oggetti a terra da vicino: la torcia della stanza d'ingresso e un acciarino accanto.
+	var pickups := get_tree().get_nodes_in_group("pickup")
+	if not pickups.is_empty():
+		var pp: Vector3 = (pickups[0] as Node3D).global_position
+		dungeon.spawn_pickup(Items.FLINT, pp + Vector3(0.45, 0, 0.25))
+		cam.position = pp + Vector3(0.9, 0.9, 1.0)
+		cam.look_at(pp + Vector3(0.2, 0, 0.1))
+		await _shot("pickup.png")
+
+	# In prima persona, con la torcia accesa in mano (la luce della camera si spegne).
+	torch.visible = false
+	var player := (load("res://scenes/player.tscn") as PackedScene).instantiate() as Player
+	add_child(player)
+	player.global_position = dungeon.cell_to_world(dungeon.gen.start_cell) + Vector3.UP * 0.1
+	player.torch.refill()
+	player.get_node("Head/Camera3D").make_current()
+	await _shot("hand.png")
 	get_tree().quit()
 
 

@@ -1,7 +1,8 @@
 class_name Torch
 extends OmniLight3D
 ## Torcia a consumo: perde intensità e raggio e sfarfalla sempre di più.
-## Nessuna barra: il giocatore capisce che sta finendo guardando la luce.
+## Nessuna barra: il giocatore capisce che sta finendo guardando la luce e la fiamma che si rimpicciolisce.
+## Il nodo è la luce e sta nella fiamma; il modello voxel della torcia pende sotto.
 
 signal burned_out
 
@@ -13,12 +14,19 @@ signal burned_out
 @export var gust_amount := 0.12    ## variazione lenta, come una corrente d'aria
 @export var sway := 0.03           ## metri: la fiamma ondeggia e le ombre danzano
 
+@export_group("Modello in mano")
+@export var hand_lean := Vector3(-0.3, 0.0, 0.35)  ## inclinazione della torcia (radianti): la cima verso il centro dello schermo
+@export var flame_min_scale := 0.35  ## grandezza della fiamma quando la torcia sta per finire
+
 var fuel := 0.0
 var lit := true
 
 var _noise := FastNoiseLite.new()
 var _time := 0.0
 var _base_position := Vector3.ZERO
+var _hand := Node3D.new()  ## perno in cima alla testa della torcia: il modello pende sotto
+var _hand_base := Vector3.ZERO
+var _flame := MeshInstance3D.new()
 
 
 func _ready() -> void:
@@ -27,6 +35,7 @@ func _ready() -> void:
 	shadow_enabled = true
 	_noise.frequency = 1.0
 	_base_position = position
+	_build_model()
 
 
 func _process(delta: float) -> void:
@@ -48,6 +57,12 @@ func _process(delta: float) -> void:
 	var target := full_energy * lerpf(0.3, 1.0, ratio) * flicker if lit else 0.0
 	light_energy = lerpf(light_energy, target, minf(20.0 * delta, 1.0))
 	omni_range = lerpf(min_range, full_range, ratio)
+
+	# La torcia resta ferma in mano: ondeggiano solo luce e fiamma.
+	_hand.position = _hand_base - (position - _base_position)
+	_hand.visible = lit or fuel > 0.0  # a mani vuote non si tiene niente
+	_flame.visible = lit
+	_flame.scale = Vector3(1.0, maxf(flicker, 0.3), 1.0) * lerpf(flame_min_scale, 1.0, ratio)
 
 
 ## Spegnere è sempre gratis; per riaccendere serve un acciarino (lo controlla il giocatore).
@@ -73,3 +88,29 @@ func empty() -> void:
 func refill(amount: float = -1.0) -> void:
 	fuel = max_fuel if amount < 0.0 else minf(fuel + amount, max_fuel)
 	lit = true
+
+
+## Modello voxel della torcia con la fiamma in cima. Niente ombre dal modello:
+## sta attaccato alla luce e oscurerebbe mezza stanza.
+func _build_model() -> void:
+	var flame_size := Vector3(1.5, 2.5, 1.5) * Voxels.ITEM_VOXEL_SIZE
+	var model := Voxels.instance(&"item_torch")
+	model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	model.position.y = -model.mesh.get_aabb().size.y
+	_hand_base = Vector3(0.0, -flame_size.y / 2.0, 0.0)
+	_hand.position = _hand_base
+	_hand.rotation = hand_lean
+	_hand.add_child(model)
+	add_child(_hand)
+
+	var box := BoxMesh.new()
+	box.size = flame_size
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = burn_color
+	mat.emission_enabled = true
+	mat.emission = burn_color
+	mat.emission_energy_multiplier = 2.0
+	box.material = mat
+	_flame.mesh = box
+	_flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_flame)

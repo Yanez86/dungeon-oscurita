@@ -81,10 +81,10 @@ Nel nodo `Main` imposta `fixed_seed` al seed della segnalazione: il gioco rigene
 
 ## Grafica voxel
 
-Tutta la grafica (muri, pavimenti, soffitto, pilastri, porte, arredi, torce a muro) è fatta di modelli voxel in `assets/voxels/` (formato `.vox` di [MagicaVoxel](https://ephtracy.github.io/)). Scala: 1 voxel = 12,5 cm, quindi una cella da 2 m è larga 16 voxel e un muro è alto 24.
+Tutta la grafica (muri, pavimenti, soffitto, pilastri, porte, arredi, torce a muro, oggetti e torcia in mano) è fatta di modelli voxel in `assets/voxels/` (formato `.vox` di [MagicaVoxel](https://ephtracy.github.io/)). Scala: 1 voxel = 12,5 cm, quindi una cella da 2 m è larga 16 voxel e un muro è alto 24.
 Il gioco legge i `.vox` all'avvio e li trasforma in mesh (`Voxels.mesh()` / `Voxels.instance()`): basta modificarli in MagicaVoxel, salvare e riavviare.
 
 - `godot --headless -s res://tools/make_voxels.gd` rigenera i modelli di base dal seed (**sovrascrive** i `.vox`: se ne hai ritoccato uno, toglilo prima dall'elenco nello script).
-- `godot res://tools/voxel_preview.tscn -- <cartella> [seed]` salva gli screenshot di controllo (galleria dei modelli e degli arredi, stanza d'ingresso, una porta, un arredo).
+- `godot res://tools/voxel_preview.tscn -- <cartella> [seed]` salva gli screenshot di controllo (galleria dei modelli e degli arredi, stanza d'ingresso, una porta, un arredo, oggetti a terra, prima persona con la torcia).
 
-Regole dei modelli: origine al centro in x e z, base in basso. Nei muri (16×26×8: 24 di parete più 2 di fondazione sotto il pavimento) la parete occupa la metà posteriore e la faccia a vista sta a metà profondità; ciò che sporge (mensole, mattoni) va nella metà anteriore. La torcia a muro segue la stessa convenzione. Le misure che il gioco si aspetta sono controllate in `tests/test_voxel.gd`.
+Regole dei modelli: origine al centro in x e z, base in basso. Gli oggetti che si raccolgono si chiamano `item_<id>` (es. `item_torch`, `item_flint`) e usano voxel da 6,25 cm, metà di quelli del mondo: per un oggetto nuovo basta il suo `.vox`. Nei muri (16×26×8: 24 di parete più 2 di fondazione sotto il pavimento) la parete occupa la metà posteriore e la faccia a vista sta a metà profondità; ciò che sporge (mensole, mattoni) va nella metà anteriore. La torcia a muro segue la stessa convenzione. Le misure che il gioco si aspetta sono controllate in `tests/test_voxel.gd`.

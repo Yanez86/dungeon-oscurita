@@ -72,6 +72,8 @@ func _init() -> void:
 	count += _save("candle_triple", _candle_triple())
 	count += _save("candle_melted", _candle_melted())
 	count += _save("wall_torch", _wall_torch())
+	count += _save("item_torch", _item_torch())
+	count += _save("item_flint", _item_flint())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -514,4 +516,45 @@ func _wall_torch() -> VoxModel:
 	m.paint(Vector3i(1, 2, 6), IRON)
 	m.paint(Vector3i(1, 4, 5), CLOTH)
 	m.paint(Vector3i(1, 5, 5), _tone(CLOTH, -4))
+	return m
+
+
+# --- Oggetti -----------------------------------------------------------------
+# I modelli "item_*" usano voxel da 6,25 cm (Voxels.ITEM_VOXEL_SIZE): metà di quelli del mondo.
+
+const ROPE := Color(0.45, 0.37, 0.24)
+const FLINT_STONE := Color(0.24, 0.24, 0.27)
+
+## Torcia 3 x 10 x 3, in piedi come quando la si tiene in mano: bastone, legatura di corda,
+## testa di stoffa più larga e annerita in cima. La fiamma la aggiunge torch.gd.
+func _item_torch() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 10, 3))
+	for y in 6:
+		m.paint(Vector3i(1, y, 1), _tone(WOOD, -2 if y == 0 else [0, -1][y % 2]))
+	for y in range(6, 10):
+		for x in 3:
+			for z in 3:
+				var corner := x != 1 and z != 1
+				if corner and (y == 6 or y == 9):
+					continue  # testa arrotondata sopra e sotto
+				var c := ROPE if y == 6 else _jitter(_tone(CLOTH, 1 if y == 7 else 0), 0.4)
+				if y == 9:
+					c = _tone(CLOTH, -4 if x == 1 and z == 1 else -2)
+				m.paint(Vector3i(x, y, z), c)
+	return m
+
+
+## Acciarino 5 x 2 x 3: la selce scura dentro l'acciaio a forma di C.
+func _item_flint() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(5, 2, 3))
+	m.fill_box(Vector3i(0, 0, 0), Vector3i(4, 0, 0), IRON)
+	m.paint(Vector3i(0, 0, 1), IRON)
+	m.paint(Vector3i(4, 0, 1), IRON)
+	m.paint(Vector3i(2, 0, 0), RIVET)
+	for x in range(1, 4):
+		for z in range(1, 3):
+			m.paint(Vector3i(x, 0, z), _tone(FLINT_STONE, -1))
+			if not (x == 3 and z == 2):
+				m.paint(Vector3i(x, 1, z), _jitter(FLINT_STONE, 0.5))
+	m.paint(Vector3i(2, 1, 1), _tone(FLINT_STONE, 3))  # scheggia chiara
 	return m
