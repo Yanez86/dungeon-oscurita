@@ -160,7 +160,6 @@ func _add_wall_pieces(walls: Array[Vector2i], rng: RandomNumberGenerator, pieces
 
 ## Pilastri negli angoli dei muri (rientranti e sporgenti): coprono le giunture tra i pannelli.
 ## Un angolo è un vertice della griglia con 1 o 3 celle di pavimento attorno (o 2 in diagonale).
-## Niente pilastri accanto alle porte: il pannello aperto ci passerebbe attraverso.
 func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
@@ -173,12 +172,10 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 			# Le quattro celle attorno al vertice tra (x-1, y-1) e (x, y).
 			var around: Array[Vector2i] = [Vector2i(x - 1, y - 1), Vector2i(x, y - 1), Vector2i(x - 1, y), Vector2i(x, y)]
 			var floors := 0
-			var near_door := false
 			for c in around:
 				floors += int(gen.is_floor(c))
-				near_door = near_door or gen.doors.has(c)
 			var diagonal := floors == 2 and gen.is_floor(around[0]) == gen.is_floor(around[3])
-			if near_door or not (floors == 1 or floors == 3 or diagonal):
+			if not (floors == 1 or floors == 3 or diagonal):
 				continue
 			var pos := cell_to_world(Vector2i(x, y)) - Vector3(CELL / 2.0, 0, CELL / 2.0)
 			_append_piece(pieces, &"pillar", Transform3D(Basis.from_scale(size), pos))
