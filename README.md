@@ -2,7 +2,7 @@
 
 Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tutto, combattimento come ultima spiaggia.
 
-**Motore:** Godot 4.7 · **Stato:** prototipo (M0–M2)
+**Motore:** Godot 4.7 · **Stato:** prototipo (M0–M3)
 
 ## Avvio
 
@@ -17,12 +17,18 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | WASD + mouse | Muoversi / guardarsi intorno |
 | Shift | Correre (più rumore) |
 | Ctrl o C | Accovacciarsi (meno rumore) |
-| F | Accendere/spegnere la torcia |
+| F | Spegnere la torcia / riaccenderla (serve l'acciarino) |
+| Q | Accendere una torcia di scorta (gratis se quella in mano è accesa, altrimenti serve l'acciarino) |
+| E | Raccogliere l'oggetto vicino |
+| 1–5 | Scegliere lo slot dell'inventario |
+| G | Lasciare a terra l'oggetto selezionato (fa rumore) |
+| M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
 | R | Nuova partita |
 | F3 | Debug |
 | Esc | Libera il mouse |
 
 Il cerchio blu è l'uscita: porta al piano successivo.
+Si parte con una torcia accesa e un acciarino; le torce di scorta vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
 
 ## Struttura
 
@@ -32,7 +38,8 @@ scripts/
   autoload/        Game (stato, comandi), NoiseBus (eventi rumore)
   dungeon/         generatore (solo dati) e costruttore 3D
   player/          movimento, input separato, torcia
-  ui/              overlay di debug
+  items/           catalogo oggetti, inventario (solo dati), oggetti a terra
+  ui/              HUD minimo, overlay di debug
 tests/             test automatici
 assets/            modelli, audio, texture
 ```
@@ -49,6 +56,7 @@ assets/            modelli, audio, texture
 
 ```
 godot --headless -s res://tests/test_generator.gd
+godot --headless -s res://tests/test_inventory.gd
 ```
 
 ## Build per i tester

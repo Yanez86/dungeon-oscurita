@@ -27,6 +27,12 @@ jobs:
       - name: Test del generatore
         run: ./godot --headless -s res://tests/test_generator.gd
 
+      - name: Test dell'inventario
+        run: ./godot --headless -s res://tests/test_inventory.gd
+
+      - name: Test della mappa esplorata
+        run: ./godot --headless -s res://tests/test_explored_map.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log

@@ -1,6 +1,8 @@
 extends Node
 ## Stato globale della partita e configurazione dei comandi.
 
+const SLOT_KEYS := 5  ## tasti numerici per scegliere lo slot dell'inventario
+
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)
 var floor_number: int = 1  ## piano corrente
@@ -23,6 +25,12 @@ func _setup_input() -> void:
 	_bind("sprint", [KEY_SHIFT])
 	_bind("crouch", [KEY_CTRL, KEY_C])
 	_bind("torch_toggle", [KEY_F])
+	_bind("new_torch", [KEY_Q])
+	_bind("interact", [KEY_E])
+	_bind("drop", [KEY_G])
+	for i in SLOT_KEYS:
+		_bind("slot_%d" % (i + 1), [KEY_1 + i])
+	_bind("map_toggle", [KEY_M])
 	_bind("new_run", [KEY_R])
 	_bind("debug_toggle", [KEY_F3])
 

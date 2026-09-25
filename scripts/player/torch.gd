@@ -41,12 +41,20 @@ func _process(delta: float) -> void:
 	omni_range = lerpf(min_range, full_range, ratio)
 
 
-## Spegne/accende. TODO (GDD): riaccendere richiederà un acciarino.
-func toggle() -> void:
-	if fuel > 0.0:
-		lit = not lit
+## Spegnere è sempre gratis; per riaccendere serve un acciarino (lo controlla il giocatore).
+func extinguish() -> void:
+	lit = false
 
 
+## Riaccende la torcia in mano, se ha ancora combustibile.
+func relight() -> bool:
+	if fuel <= 0.0:
+		return false
+	lit = true
+	return true
+
+
+## Sostituisce la torcia in mano con una nuova, accesa e piena.
 func refill(amount: float = -1.0) -> void:
 	fuel = max_fuel if amount < 0.0 else minf(fuel + amount, max_fuel)
 	lit = true

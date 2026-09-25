@@ -24,12 +24,13 @@ Ogni funzionalità deve rafforzarne almeno uno:
 
 ## Struttura
 ```
-scenes/              main.tscn, player.tscn
+scenes/              main.tscn, player.tscn, pickup.tscn
 scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
-scripts/dungeon/     dungeon_generator.gd (dati), dungeon_builder.gd (3D)
+scripts/dungeon/     dungeon_generator.gd (dati, anche posizione oggetti), dungeon_builder.gd (3D)
 scripts/player/      player.gd, player_input.gd, torch.gd
-scripts/ui/          debug_overlay.gd (F3)
-tests/               test headless
+scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra)
+scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3)
+tests/               test headless (generatore, inventario)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
 
@@ -37,12 +38,13 @@ Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
 ```
 godot --headless --import                         # dopo aver aggiunto file o classi
 godot --headless -s res://tests/test_generator.gd # test, esce con 1 se fallisce
+godot --headless -s res://tests/test_inventory.gd
 godot --headless --quit-after 120                 # avvio rapido per scovare errori di script
 ```
 Dopo ogni modifica al codice: lancia test e avvio rapido e verifica che non ci siano `SCRIPT ERROR` o `Parse Error`. Per logica nuova e testabile senza grafica (inventario, IA, generazione) aggiungi un test in `tests/`.
 
 ## Flusso di lavoro
-- Segui la roadmap del GDD (M3: torce raccoglibili e inventario; M4: eventi rumore e primo nemico, il Cieco).
+- Segui la roadmap del GDD (M3 fatta: torce raccoglibili e inventario; prossima M4: eventi rumore e primo nemico, il Cieco).
 - Per funzionalità grandi proponi prima un piano.
 - Un branch per funzionalità, commit piccoli con messaggio in italiano, pull request verso `main` (la CI esegue i test).
 - Incrementa `config/version` in `project.godot` quando si prepara una build per i tester; le build partono con un tag `vX.Y.Z`.

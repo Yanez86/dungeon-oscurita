@@ -13,17 +13,26 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var wall_color := Color(0.45, 0.42, 0.40)
 @export var floor_color := Color(0.32, 0.30, 0.28)
 
+@export_group("Oggetti per piano")
+@export var torches_first_floor := 4  ## torce di scorta al piano 1
+@export var floors_per_torch_lost := 2  ## ogni quanti piani c'è una torcia in meno
+@export var torches_min := 1
+@export var flints_per_floor := 1
+
+const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
+
 var gen: DungeonGenerator
 var _exit_armed := false
 
 
-func build(seed_value: int) -> void:
+func build(seed_value: int, floor_number: int = 1) -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
 
 	gen = DungeonGenerator.new(map_size.x, map_size.y)
 	gen.generate(seed_value)
+	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 
 	var floors: Array[Vector2i] = []
 	var walls: Array[Vector2i] = []
@@ -41,10 +50,33 @@ func build(seed_value: int) -> void:
 	_add_blocks(Vector3(CELL, WALL_H, CELL), walls, WALL_H / 2.0, wall_color)
 	_add_collision(walls)
 	_add_exit()
+	for c in gen.items:
+		spawn_pickup(gen.items[c], cell_to_world(c))
+
+
+## Le torce diventano più rare scendendo (GDD: generazione procedurale).
+func torches_for_floor(floor_number: int) -> int:
+	var lost := floori(float(floor_number - 1) / maxi(floors_per_torch_lost, 1))
+	return maxi(torches_min, torches_first_floor - lost)
+
+
+## Crea un oggetto a terra. Usato dal generatore e quando il giocatore lascia qualcosa.
+## Gli oggetti sono figli del dungeon, così spariscono quando si cambia piano.
+func spawn_pickup(item: StringName, world_pos: Vector3) -> Pickup:
+	var p: Pickup = PICKUP_SCENE.instantiate()
+	p.item = item
+	p.position = world_pos
+	add_child(p)
+	return p
 
 
 func cell_to_world(c: Vector2i) -> Vector3:
 	return Vector3(c.x * CELL, 0.0, c.y * CELL)
+
+
+## Inverso di cell_to_world: la cella che contiene un punto del mondo.
+static func world_to_cell(pos: Vector3) -> Vector2i:
+	return Vector2i(roundi(pos.x / CELL), roundi(pos.z / CELL))
 
 
 ## Tutti i blocchi uguali in un'unica MultiMesh: veloce anche con migliaia di celle.

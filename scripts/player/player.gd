@@ -1,3 +1,4 @@
+class_name Player
 extends CharacterBody3D
 ## Giocatore in prima persona. Non legge mai la tastiera direttamente:
 ## usa le intenzioni del nodo Input (vedi player_input.gd).
@@ -13,6 +14,19 @@ extends CharacterBody3D
 @export var walk_loudness := 0.3
 @export var sprint_loudness := 0.6
 
+@export_group("Oggetti")
+@export var inventory_slots := 5
+@export var start_items: Array[StringName] = [Items.FLINT]
+@export var pickup_range := 1.8     ## metri entro cui si può raccogliere
+@export var pickup_loudness := 0.1
+@export var drop_loudness := 0.35   ## lasciare a terra fa rumore (GDD)
+@export var flint_loudness := 0.25  ## lo scatto dell'acciarino
+
+## Frase breve da mostrare a schermo (la legge l'HUD).
+signal message(text: String)
+## Il giocatore ha lasciato un oggetto: main.gd lo fa comparire nel dungeon.
+signal item_dropped(item: StringName, world_pos: Vector3)
+
 const HEAD_STAND := 1.6
 const HEAD_CROUCH := 1.0
 
@@ -20,12 +34,26 @@ const HEAD_CROUCH := 1.0
 @onready var head: Node3D = $Head
 @onready var torch: Torch = $Head/Torch
 
+var inventory: Inventory
+var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _step_progress := 0.0
 
 
 func _ready() -> void:
 	add_to_group("player")
+	inventory = Inventory.new(inventory_slots)
+	torch.burned_out.connect(func() -> void: message.emit("La torcia si è consumata."))
+	reset_for_run()
+
+
+## Inizio partita: torcia nuova e inventario iniziale. Tra un piano e l'altro non si chiama.
+func reset_for_run() -> void:
+	inventory.clear()
+	for id in start_items:
+		inventory.add(id)
+	torch.refill()
 
 
 func _physics_process(delta: float) -> void:
@@ -35,8 +63,7 @@ func _physics_process(delta: float) -> void:
 	rotate_y(-look.x)
 	head.rotation.x = clampf(head.rotation.x - look.y, -1.4, 1.4)
 
-	if input.torch_toggle:
-		torch.toggle()
+	_handle_items()
 
 	var speed := walk_speed
 	var loudness := walk_loudness
@@ -58,6 +85,87 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	_update_footsteps(delta, loudness)
+
+
+func _handle_items() -> void:
+	nearby_pickup = _find_nearby_pickup()
+	if input.select_slot >= 0:
+		inventory.select(input.select_slot)
+	if input.torch_toggle:
+		_toggle_torch()
+	if input.new_torch:
+		_light_spare_torch()
+	if input.interact:
+		_pick_up()
+	if input.drop:
+		_drop_selected()
+
+
+## F: spegnere è gratis, riaccendere richiede l'acciarino.
+func _toggle_torch() -> void:
+	if torch.lit:
+		torch.extinguish()
+	elif torch.fuel <= 0.0:
+		message.emit("La torcia è consumata: Q per accenderne un'altra.")
+	elif not inventory.has(Items.FLINT):
+		message.emit("Serve un acciarino per riaccenderla.")
+	else:
+		torch.relight()
+		NoiseBus.emit_noise(global_position, flint_loudness, self)
+
+
+## Q: accende una torcia di scorta al posto di quella in mano (che si butta).
+## Se quella in mano è accesa si usa la sua fiamma, altrimenti serve l'acciarino.
+func _light_spare_torch() -> void:
+	if not inventory.has(Items.TORCH):
+		message.emit("Nessuna torcia di scorta.")
+		return
+	if not torch.lit:
+		if not inventory.has(Items.FLINT):
+			message.emit("Serve un acciarino per accenderla.")
+			return
+		NoiseBus.emit_noise(global_position, flint_loudness, self)
+	inventory.remove(Items.TORCH)
+	torch.refill()
+	message.emit("Nuova torcia accesa.")
+
+
+## E: raccoglie l'oggetto più vicino, se c'è posto.
+func _pick_up() -> void:
+	if nearby_pickup == null:
+		return
+	if not inventory.add(nearby_pickup.item):
+		message.emit("Inventario pieno: G per lasciare qualcosa.")
+		return
+	message.emit("Raccolto: %s" % nearby_pickup.display_name())
+	nearby_pickup.queue_free()
+	nearby_pickup = null
+	NoiseBus.emit_noise(global_position, pickup_loudness, self)
+
+
+## G: lascia l'oggetto dello slot selezionato davanti ai piedi.
+func _drop_selected() -> void:
+	var id := inventory.take(inventory.selected)
+	if id == &"":
+		return
+	var pos := global_position - global_transform.basis.z * 0.6
+	pos.y = 0.0
+	item_dropped.emit(id, pos)
+	NoiseBus.emit_noise(global_position, drop_loudness, self)
+
+
+func _find_nearby_pickup() -> Pickup:
+	var best: Pickup = null
+	var best_d := pickup_range
+	for node in get_tree().get_nodes_in_group("pickup"):
+		var p := node as Pickup
+		if p == null or p.is_queued_for_deletion():
+			continue
+		var d := Vector2(p.global_position.x - global_position.x, p.global_position.z - global_position.z).length()
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
 
 
 ## Ogni `step_length` metri percorsi genera un evento rumore.

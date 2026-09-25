@@ -11,6 +11,7 @@ var grid := PackedByteArray()
 var rooms: Array[Rect2i] = []
 var start_cell := Vector2i.ZERO
 var exit_cell := Vector2i.ZERO
+var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi Items)
 
 var _rng := RandomNumberGenerator.new()
 
@@ -25,6 +26,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	grid.resize(width * height)
 	grid.fill(Cell.WALL)
 	rooms.clear()
+	items.clear()
 
 	for attempt in max_rooms * 4:
 		if rooms.size() >= max_rooms:
@@ -44,6 +46,29 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 
 	start_cell = rooms[0].get_center()
 	exit_cell = _farthest_room_center(start_cell)
+
+
+## Sparge gli oggetti nelle stanze, mai in quella d'ingresso né sull'uscita.
+## Va chiamata subito dopo generate(): continua lo stesso generatore casuale,
+## quindi stesso seed + stessi conteggi = stessi oggetti negli stessi punti.
+func place_items(torch_count: int, flint_count: int) -> void:
+	items.clear()
+	var to_place: Array[StringName] = []
+	for i in torch_count:
+		to_place.append(Items.TORCH)
+	for i in flint_count:
+		to_place.append(Items.FLINT)
+	if rooms.size() < 2:
+		return
+	for id in to_place:
+		for attempt in 20:
+			var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
+			var c := Vector2i(
+				_rng.randi_range(room.position.x, room.end.x - 1),
+				_rng.randi_range(room.position.y, room.end.y - 1))
+			if c != exit_cell and not items.has(c):
+				items[c] = id
+				break
 
 
 func is_floor(c: Vector2i) -> bool:
@@ -82,7 +107,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 	return dist
 
 
-## Mappa in testo: # muro, . pavimento, S ingresso, E uscita.
+## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, T torcia, A acciarino.
 func to_ascii() -> String:
 	var out := ""
 	for y in height:
@@ -90,6 +115,8 @@ func to_ascii() -> String:
 			var c := Vector2i(x, y)
 			if c == start_cell: out += "S"
 			elif c == exit_cell: out += "E"
+			elif items.get(c) == Items.TORCH: out += "T"
+			elif items.get(c) == Items.FLINT: out += "A"
 			elif is_floor(c): out += "."
 			else: out += "#"
 		out += "\n"

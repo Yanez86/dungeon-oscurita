@@ -10,6 +10,10 @@ var move := Vector2.ZERO     ## x = destra/sinistra, y = avanti/indietro
 var sprint := false
 var crouch := false
 var torch_toggle := false
+var new_torch := false    ## accendi una torcia di scorta
+var interact := false     ## raccogli l'oggetto vicino
+var drop := false         ## lascia a terra l'oggetto selezionato
+var select_slot := -1     ## slot scelto con i tasti numerici (-1 = nessuno)
 
 var _look := Vector2.ZERO
 
@@ -20,6 +24,13 @@ func sample() -> void:
 	sprint = Input.is_action_pressed("sprint")
 	crouch = Input.is_action_pressed("crouch")
 	torch_toggle = Input.is_action_just_pressed("torch_toggle")
+	new_torch = Input.is_action_just_pressed("new_torch")
+	interact = Input.is_action_just_pressed("interact")
+	drop = Input.is_action_just_pressed("drop")
+	select_slot = -1
+	for i in Game.SLOT_KEYS:
+		if Input.is_action_just_pressed("slot_%d" % (i + 1)):
+			select_slot = i
 
 
 ## Movimento del mouse accumulato dall'ultima lettura.
