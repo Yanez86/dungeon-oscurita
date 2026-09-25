@@ -26,9 +26,9 @@ Ogni funzionalità deve rafforzarne almeno uno:
 ```
 scenes/              main.tscn, player.tscn, pickup.tscn, door.tscn, wall_torch.tscn
 scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
-scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), kaykit.gd (arredi KayKit), door.gd, wall_torch.gd
+scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), door.gd, wall_torch.gd
 scripts/voxel/       vox_model.gd (file .vox di MagicaVoxel), voxel_mesher.gd (voxel -> mesh), voxels.gd (caricamento modelli)
-assets/voxels/       modelli .vox di muri, pavimenti, soffitto, pilastri, porte (1 voxel = 0.125 m)
+assets/voxels/       tutti i modelli del gioco in .vox: muri, pavimenti, porte, arredi, torce a muro (1 voxel = 0.125 m)
 tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
 scripts/player/      player.gd, player_input.gd, torch.gd
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra)
