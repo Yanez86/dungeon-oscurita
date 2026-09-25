@@ -33,6 +33,9 @@ jobs:
       - name: Test della mappa esplorata
         run: ./godot --headless -s res://tests/test_explored_map.gd
 
+      - name: Test dei voxel
+        run: ./godot --headless -s res://tests/test_voxel.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log
