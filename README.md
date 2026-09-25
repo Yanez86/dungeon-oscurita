@@ -39,11 +39,13 @@ scenes/            scene (.tscn)
 scripts/
   autoload/        Game (stato, comandi), NoiseBus (eventi rumore)
   dungeon/         generatore (solo dati) e costruttore 3D
+  voxel/           file .vox di MagicaVoxel e loro conversione in mesh
   player/          movimento, input separato, torcia
   items/           catalogo oggetti, inventario (solo dati), oggetti a terra
   ui/              HUD minimo, overlay di debug
 tests/             test automatici
-assets/            modelli, audio, texture
+tools/             generatore dei modelli voxel e anteprima
+assets/            modelli (voxel/ in .vox), audio, texture
 ```
 
 ## Regole del progetto
@@ -59,6 +61,7 @@ assets/            modelli, audio, texture
 ```
 godot --headless -s res://tests/test_generator.gd
 godot --headless -s res://tests/test_inventory.gd
+godot --headless -s res://tests/test_voxel.gd
 ```
 
 ## Build per i tester
@@ -74,4 +77,15 @@ Nel nodo `Main` imposta `fixed_seed` al seed della segnalazione: il gioco rigene
 
 ## Crediti
 
-- Modelli 3D: [KayKit – Dungeon Remastered](https://kaylousberg.itch.io/kaykit-dungeon-remastered) di Kay Lousberg (www.kaylousberg.com), licenza CC0. In `assets/models/kaykit/` ci sono solo i `.glb` e la texture condivisa; l'import non estrae le texture (tutti i pezzi usano `dungeon_texture.png`). Nel codice si caricano con `KayKit.mesh()` o `KayKit.instance()`.
+- Modelli voxel (muri, pavimenti, porte): creati per il gioco, in `assets/voxels/`.
+- Arredi e torce a muro: [KayKit – Dungeon Remastered](https://kaylousberg.itch.io/kaykit-dungeon-remastered) di Kay Lousberg (www.kaylousberg.com), licenza CC0. In `assets/models/kaykit/` ci sono solo i `.glb` e la texture condivisa; l'import non estrae le texture (tutti i pezzi usano `dungeon_texture.png`). Nel codice si caricano con `KayKit.mesh()` o `KayKit.instance()`.
+
+## Grafica voxel
+
+Muri, pavimenti, soffitto, pilastri e porte sono modelli voxel in `assets/voxels/` (formato `.vox` di [MagicaVoxel](https://ephtracy.github.io/)). Scala: 1 voxel = 12,5 cm, quindi una cella da 2 m è larga 16 voxel e un muro è alto 24.
+Il gioco legge i `.vox` all'avvio e li trasforma in mesh (`Voxels.mesh()` / `Voxels.instance()`): basta modificarli in MagicaVoxel, salvare e riavviare.
+
+- `godot --headless -s res://tools/make_voxels.gd` rigenera i modelli di base dal seed (**sovrascrive** i `.vox`: se ne hai ritoccato uno, toglilo prima dall'elenco nello script).
+- `godot res://tools/voxel_preview.tscn -- <cartella> [seed]` salva gli screenshot di controllo (galleria dei modelli, stanza d'ingresso, una porta).
+
+Regole dei modelli: origine al centro in x e z, base in basso. Nei muri (16×24×8) la parete occupa la metà posteriore e la faccia a vista sta a metà profondità; ciò che sporge (mensole, mattoni) va nella metà anteriore. Le misure che il gioco si aspetta sono controllate in `tests/test_voxel.gd`.

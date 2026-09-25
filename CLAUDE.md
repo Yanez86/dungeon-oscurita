@@ -26,12 +26,15 @@ Ogni funzionalità deve rafforzarne almeno uno:
 ```
 scenes/              main.tscn, player.tscn, pickup.tscn, door.tscn, wall_torch.tscn
 scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
-scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), kaykit.gd (modelli), door.gd, wall_torch.gd
+scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), kaykit.gd (arredi KayKit), door.gd, wall_torch.gd
+scripts/voxel/       vox_model.gd (file .vox di MagicaVoxel), voxel_mesher.gd (voxel -> mesh), voxels.gd (caricamento modelli)
+assets/voxels/       modelli .vox di muri, pavimenti, soffitto, pilastri, porte (1 voxel = 0.125 m)
+tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
 scripts/player/      player.gd, player_input.gd, torch.gd
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra)
 scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3), psx_filter.gd (filtro retro, F4)
 shaders/             psx_post.gdshader (post-processing retro PS1)
-tests/               test headless (generatore, inventario)
+tests/               test headless (generatore, inventario, voxel)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
 

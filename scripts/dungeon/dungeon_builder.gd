@@ -1,8 +1,8 @@
 class_name DungeonBuilder
 extends Node3D
 ## Costruisce in 3D il piano prodotto da DungeonGenerator.
-## Pavimento e muri usano i pezzi KayKit Dungeon Remastered (CC0, Kay Lousberg),
-## riscalati sulla cella da 2 m; le collisioni restano blocchi semplici.
+## Pavimento, muri, soffitto e pilastri sono modelli voxel (assets/voxels/, vedi Voxels);
+## gli arredi sono ancora pezzi KayKit. Le collisioni restano blocchi semplici.
 
 signal exit_reached
 ## Una porta si è aperta: `cell` è la sua cella nella griglia del generatore.
@@ -14,13 +14,14 @@ const CELL := 2.0     ## lato di una cella in metri
 const WALL_H := 3.0   ## altezza dei muri
 
 @export var map_size := Vector2i(50, 50)
-@export var ceiling_color := Color(0.22, 0.20, 0.19)
 
 @export_group("Aspetto")
-@export var floor_variant_chance := 0.2  ## piastrelle rotte o con erbacce
-@export var wall_variant_chance := 0.25  ## muri crepati
-@export var shelf_chance := 0.06         ## scaffali, solo nelle stanze
-@export var pillar_width := 0.5          ## pilastri negli angoli dei muri (metri)
+@export var floor_variant_chance := 0.2  ## lastre crepate o col muschio
+@export var wall_variant_chance := 0.12  ## muri crepati
+@export var shelf_chance := 0.06         ## mensole, solo nelle stanze
+@export var pillar_width := 0.5          ## collisione dei pilastri negli angoli (metri)
+@export var chunk_cells := 6             ## lato dei blocchi di disegno (celle): più piccoli = più draw call, meno triangoli
+@export var view_distance := 40.0        ## metri oltre i quali muri e pavimenti non si disegnano
 
 @export_group("Oggetti per piano")
 @export var torches_first_floor := 4  ## torce di scorta al piano 1
@@ -39,10 +40,13 @@ const WALL_H := 3.0   ## altezza dei muri
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
-const MODEL_SIZE := 4.0  ## i muri KayKit sono larghi e alti 4 m, spessi 1 m
+const FLOOR_T := 0.25  ## spessore dei modelli di pavimento e soffitto
 
-const ROOM_FLOORS: Array[StringName] = [&"floor_tile_small_broken_A", &"floor_tile_small_broken_B", &"floor_tile_small_weeds_A", &"floor_tile_small_weeds_B"]
-const CORRIDOR_FLOORS: Array[StringName] = [&"floor_dirt_small_A", &"floor_dirt_small_B", &"floor_dirt_small_C", &"floor_dirt_small_D"]
+## Modelli voxel: le varianti "normali" si alternano, le altre compaiono con le probabilità in Aspetto.
+const ROOM_FLOORS: Array[StringName] = [&"floor_stone_a", &"floor_stone_b", &"floor_stone_c"]
+const ROOM_FLOOR_VARIANTS: Array[StringName] = [&"floor_stone_cracked", &"floor_stone_moss"]
+const CORRIDOR_FLOORS: Array[StringName] = [&"floor_dirt_a", &"floor_dirt_b", &"floor_dirt_c", &"floor_dirt_d"]
+const WALLS: Array[StringName] = [&"wall_a", &"wall_b", &"wall_c"]
 ## Modelli KayKit per ogni tipo d'arredo del generatore.
 const DECORATION_MODELS: Dictionary[StringName, Array] = {
 	&"barrel": [&"barrel_small", &"barrel_small_stack", &"barrel_large", &"keg"],
@@ -85,14 +89,16 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	# Variazioni estetiche dal seed del piano: stesso seed, stesso aspetto.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var pieces: Dictionary[StringName, Array] = {}
+	var pieces: Dictionary[StringName, Array] = {}  # modelli voxel
+	var props: Dictionary[StringName, Array] = {}   # modelli KayKit
 	_add_floor_pieces(floors, rng, pieces)
 	_add_wall_pieces(walls, rng, pieces)
 	_add_corner_pillars(pieces)
-	_add_decorations(rng, pieces)
+	_add_decorations(rng, props)
 	for model in pieces:
-		_add_model_instances(model, pieces[model])
-	_add_blocks(Vector3(CELL, 0.2, CELL), floors, WALL_H + 0.1, ceiling_color)  # soffitto
+		_add_model_instances(Voxels.mesh(model), Voxels.material(), pieces[model])
+	for model in props:
+		_add_model_instances(KayKit.mesh(model), KayKit.material(), props[model])
 	_add_collision(walls)
 	_add_exit()
 	for c in gen.items:
@@ -126,35 +132,43 @@ static func world_to_cell(pos: Vector3) -> Vector2i:
 	return Vector2i(roundi(pos.x / CELL), roundi(pos.z / CELL))
 
 
-## Una piastrella per cella: pietra nelle stanze, terra battuta nei corridoi.
+## Un modello per cella: lastre di pietra nelle stanze, terra battuta nei corridoi.
+## Sopra ogni cella di pavimento c'è una lastra di soffitto.
 func _add_floor_pieces(floors: Array[Vector2i], rng: RandomNumberGenerator, pieces: Dictionary[StringName, Array]) -> void:
 	for c in floors:
-		var model := &"floor_tile_small"
+		var model: StringName
+		var rot := Basis()
 		if not _in_room(c):
-			model = CORRIDOR_FLOORS[rng.randi_range(0, CORRIDOR_FLOORS.size() - 1)]
+			model = _pick(CORRIDOR_FLOORS, rng)
+			# La terra non ha fughe: girarla a quarti di giro nasconde le ripetizioni.
+			rot = Basis(Vector3.UP, rng.randi_range(0, 3) * PI / 2.0)
 		elif rng.randf() < floor_variant_chance:
-			model = ROOM_FLOORS[rng.randi_range(0, ROOM_FLOORS.size() - 1)]
-		# Rotazione a quarti di giro: le piastrelle uguali non sembrano ripetute.
-		var rot := Basis(Vector3.UP, rng.randi_range(0, 3) * PI / 2.0)
-		_append_piece(pieces, model, Transform3D(rot, cell_to_world(c) + Vector3(0, -0.05, 0)))
+			model = _pick(ROOM_FLOOR_VARIANTS, rng)
+		else:
+			model = _pick(ROOM_FLOORS, rng)
+		_append_piece(pieces, model, Transform3D(rot, cell_to_world(c) - Vector3(0, FLOOR_T, 0)))
+		_append_piece(pieces, &"ceiling", Transform3D(Basis(), cell_to_world(c) + Vector3(0, WALL_H, 0)))
 
 
-## Un pannello di muro su ogni faccia che dà sul pavimento, col lato decorato (+z) verso l'interno.
+func _pick(models: Array[StringName], rng: RandomNumberGenerator) -> StringName:
+	return models[rng.randi_range(0, models.size() - 1)]
+
+
+## Un pannello di muro su ogni faccia che dà sul pavimento, col lato a vista (+z) verso l'interno.
+## L'origine del pannello è sulla sua faccia a vista: la si mette sul bordo della cella.
 func _add_wall_pieces(walls: Array[Vector2i], rng: RandomNumberGenerator, pieces: Dictionary[StringName, Array]) -> void:
-	var size := Vector3(CELL / MODEL_SIZE, WALL_H / MODEL_SIZE, 0.5)
 	for c in walls:
 		for d in DIRS:
 			var f := c + d
 			if not gen.is_floor(f):
 				continue
-			var model := &"wall"
+			var model := _pick(WALLS, rng)
 			if _in_room(f) and not gen.wall_torches.has(f) and rng.randf() < shelf_chance:
 				model = &"wall_shelves"
 			elif rng.randf() < wall_variant_chance:
 				model = &"wall_cracked"
-			var rot := Basis(Vector3.UP, atan2(float(d.x), float(d.y))).scaled_local(size)
-			# Il pannello (spesso 0.5 m dopo la scala) sta dentro la cella del muro, a filo col bordo.
-			var pos := cell_to_world(c) + Vector3(d.x, 0, d.y) * (CELL / 2.0 - 0.25)
+			var rot := Basis(Vector3.UP, atan2(float(d.x), float(d.y)))
+			var pos := cell_to_world(c) + Vector3(d.x, 0, d.y) * (CELL / 2.0)
 			_append_piece(pieces, model, Transform3D(rot, pos))
 
 
@@ -165,8 +179,6 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 	add_child(body)
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(pillar_width, WALL_H, pillar_width)
-	var aabb := KayKit.mesh(&"pillar").get_aabb()
-	var size := Vector3(pillar_width / aabb.size.x, WALL_H / aabb.size.y, pillar_width / aabb.size.z)
 	for y in range(1, gen.height):
 		for x in range(1, gen.width):
 			# Le quattro celle attorno al vertice tra (x-1, y-1) e (x, y).
@@ -178,7 +190,7 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 			if not (floors == 1 or floors == 3 or diagonal):
 				continue
 			var pos := cell_to_world(Vector2i(x, y)) - Vector3(CELL / 2.0, 0, CELL / 2.0)
-			_append_piece(pieces, &"pillar", Transform3D(Basis.from_scale(size), pos))
+			_append_piece(pieces, &"pillar", Transform3D(Basis(), pos))
 			var col := CollisionShape3D.new()
 			col.shape = shape
 			col.position = pos + Vector3(0, WALL_H / 2.0, 0)
@@ -230,38 +242,29 @@ func _add_decorations(rng: RandomNumberGenerator, pieces: Dictionary[StringName,
 		body.add_child(col)
 
 
-## Tutte le copie di un modello KayKit in un'unica MultiMesh.
-func _add_model_instances(model: StringName, transforms: Array) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = KayKit.mesh(model)
-	mm.instance_count = transforms.size()
-	for i in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = KayKit.material()
-	add_child(mmi)
-
-
-## Tutti i blocchi uguali in un'unica MultiMesh: veloce anche con migliaia di celle.
-func _add_blocks(size: Vector3, cells: Array[Vector2i], y: float, color: Color) -> void:
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	mesh.material = _toon_material(color)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-	mm.mesh = mesh
-	mm.instance_count = cells.size()
-	for i in cells.size():
-		mm.set_instance_transform(i, Transform3D(Basis(), cell_to_world(cells[i]) + Vector3(0, y, 0)))
-		# Leggera variazione di tono per blocco: aiuta a leggere la profondità.
-		var shade := 0.82 + 0.18 * float(absi(hash(cells[i] + Vector2i(int(y * 10), 0))) % 100) / 100.0
-		mm.set_instance_color(i, Color(shade, shade, shade))
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	add_child(mmi)
+## Le copie di un modello in poche MultiMesh, una per blocco di chunk_cells x chunk_cells celle.
+## Una MultiMesh si disegna tutta o niente: a blocchi, Godot salta quelli fuori vista
+## e quelli fuori dalla portata delle luci quando calcola le ombre.
+func _add_model_instances(mesh: Mesh, material: Material, transforms: Array) -> void:
+	var chunks: Dictionary[Vector2i, Array] = {}
+	for t: Transform3D in transforms:
+		var key := Vector2i(floori(t.origin.x / (CELL * chunk_cells)), floori(t.origin.z / (CELL * chunk_cells)))
+		if not chunks.has(key):
+			chunks[key] = []
+		chunks[key].append(t)
+	for key in chunks:
+		var list: Array = chunks[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = material
+		mmi.visibility_range_end = view_distance  # oltre, la nebbia nasconde comunque tutto
+		add_child(mmi)
 
 
 func _add_collision(walls: Array[Vector2i]) -> void:
@@ -342,12 +345,3 @@ func _on_exit_body_entered(body: Node3D) -> void:
 	if _exit_armed and body.is_in_group("player"):
 		_exit_armed = false
 		exit_reached.emit()
-
-
-func _toon_material(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.vertex_color_use_as_albedo = true  # usa la variazione di tono della MultiMesh
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON   # cel shading di base
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	return m
