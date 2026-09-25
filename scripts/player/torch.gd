@@ -10,12 +10,15 @@ signal burned_out
 @export var full_range := 9.0
 @export var min_range := 2.5
 @export var burn_color := Color(1.0, 0.62, 0.3)
+@export var gust_amount := 0.12    ## variazione lenta, come una corrente d'aria
+@export var sway := 0.03           ## metri: la fiamma ondeggia e le ombre danzano
 
 var fuel := 0.0
 var lit := true
 
 var _noise := FastNoiseLite.new()
 var _time := 0.0
+var _base_position := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -23,6 +26,7 @@ func _ready() -> void:
 	light_color = burn_color
 	shadow_enabled = true
 	_noise.frequency = 1.0
+	_base_position = position
 
 
 func _process(delta: float) -> void:
@@ -35,7 +39,12 @@ func _process(delta: float) -> void:
 
 	var ratio := fuel / max_fuel
 	var flicker_amount := lerpf(0.45, 0.06, ratio)  # più sfarfallio verso la fine
-	var flicker := 1.0 + _noise.get_noise_1d(_time * 10.0) * flicker_amount
+	var gust := _noise.get_noise_1d(_time * 1.5 + 100.0) * gust_amount
+	var flicker := 1.0 + _noise.get_noise_1d(_time * 10.0) * flicker_amount + gust
+	position = _base_position + Vector3(
+		_noise.get_noise_1d(_time * 6.0 + 200.0),
+		_noise.get_noise_1d(_time * 6.0 + 300.0),
+		0.0) * sway
 	var target := full_energy * lerpf(0.3, 1.0, ratio) * flicker if lit else 0.0
 	light_energy = lerpf(light_energy, target, minf(20.0 * delta, 1.0))
 	omni_range = lerpf(min_range, full_range, ratio)
