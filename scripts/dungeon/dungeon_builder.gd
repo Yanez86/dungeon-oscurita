@@ -1,8 +1,8 @@
 class_name DungeonBuilder
 extends Node3D
 ## Costruisce in 3D il piano prodotto da DungeonGenerator.
-## Pavimento, muri, soffitto e pilastri sono modelli voxel (assets/voxels/, vedi Voxels);
-## gli arredi sono ancora pezzi KayKit. Le collisioni restano blocchi semplici.
+## Tutta la grafica è fatta di modelli voxel (assets/voxels/, vedi Voxels).
+## Le collisioni restano blocchi semplici.
 
 signal exit_reached
 ## Una porta si è aperta: `cell` è la sua cella nella griglia del generatore.
@@ -47,11 +47,11 @@ const ROOM_FLOORS: Array[StringName] = [&"floor_stone_a", &"floor_stone_b", &"fl
 const ROOM_FLOOR_VARIANTS: Array[StringName] = [&"floor_stone_cracked", &"floor_stone_moss"]
 const CORRIDOR_FLOORS: Array[StringName] = [&"floor_dirt_a", &"floor_dirt_b", &"floor_dirt_c", &"floor_dirt_d"]
 const WALLS: Array[StringName] = [&"wall_a", &"wall_b", &"wall_c"]
-## Modelli KayKit per ogni tipo d'arredo del generatore.
+## Modelli voxel per ogni tipo d'arredo del generatore.
 const DECORATION_MODELS: Dictionary[StringName, Array] = {
-	&"barrel": [&"barrel_small", &"barrel_small_stack", &"barrel_large", &"keg"],
-	&"crate": [&"box_small", &"box_large", &"crates_stacked", &"box_small_decorated"],
-	&"trunk": [&"trunk_small_A", &"trunk_small_B", &"trunk_medium_A", &"trunk_medium_B"],
+	&"barrel": [&"barrel_small", &"barrel_stack", &"barrel_large", &"keg"],
+	&"crate": [&"crate_small", &"crate_large", &"crates_stacked", &"crate_decorated"],
+	&"trunk": [&"trunk_small_a", &"trunk_small_b", &"trunk_medium_a", &"trunk_medium_b"],
 	&"candles": [&"candle_triple", &"candle_melted", &"candle"],
 }
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
@@ -89,16 +89,13 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	# Variazioni estetiche dal seed del piano: stesso seed, stesso aspetto.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var pieces: Dictionary[StringName, Array] = {}  # modelli voxel
-	var props: Dictionary[StringName, Array] = {}   # modelli KayKit
+	var pieces: Dictionary[StringName, Array] = {}  # modello -> trasformazioni
 	_add_floor_pieces(floors, rng, pieces)
 	_add_wall_pieces(walls, rng, pieces)
 	_add_corner_pillars(pieces)
-	_add_decorations(rng, props)
+	_add_decorations(rng, pieces)
 	for model in pieces:
 		_add_model_instances(Voxels.mesh(model), Voxels.material(), pieces[model])
-	for model in props:
-		_add_model_instances(KayKit.mesh(model), KayKit.material(), props[model])
 	_add_collision(walls)
 	_add_exit()
 	for c in gen.items:
@@ -156,6 +153,7 @@ func _pick(models: Array[StringName], rng: RandomNumberGenerator) -> StringName:
 
 ## Un pannello di muro su ogni faccia che dà sul pavimento, col lato a vista (+z) verso l'interno.
 ## L'origine del pannello è sulla sua faccia a vista: la si mette sul bordo della cella.
+## I muri hanno una fondazione alta quanto il pavimento: si abbassano di FLOOR_T.
 func _add_wall_pieces(walls: Array[Vector2i], rng: RandomNumberGenerator, pieces: Dictionary[StringName, Array]) -> void:
 	for c in walls:
 		for d in DIRS:
@@ -168,7 +166,7 @@ func _add_wall_pieces(walls: Array[Vector2i], rng: RandomNumberGenerator, pieces
 			elif rng.randf() < wall_variant_chance:
 				model = &"wall_cracked"
 			var rot := Basis(Vector3.UP, atan2(float(d.x), float(d.y)))
-			var pos := cell_to_world(c) + Vector3(d.x, 0, d.y) * (CELL / 2.0)
+			var pos := cell_to_world(c) + Vector3(d.x, 0, d.y) * (CELL / 2.0) - Vector3(0, FLOOR_T, 0)
 			_append_piece(pieces, model, Transform3D(rot, pos))
 
 
@@ -226,16 +224,16 @@ func _add_decorations(rng: RandomNumberGenerator, pieces: Dictionary[StringName,
 			if not gen.is_floor(c + d):
 				push += Vector3(d.x, 0, d.y)
 				facing = -d
-		var aabb := KayKit.mesh(model).get_aabb()
-		var half := maxf(aabb.size.x, aabb.size.z) * KayKit.WORLD_SCALE / 2.0
+		var aabb := Voxels.mesh(model).get_aabb()
+		var half := maxf(aabb.size.x, aabb.size.z) / 2.0
 		var pos := cell_to_world(c) + push * maxf(CELL / 2.0 - half - 0.1, 0.0)
 		var yaw := Basis(Vector3.UP, atan2(float(facing.x), float(facing.y)) + rng.randf_range(-0.3, 0.3))
-		var t := Transform3D(yaw.scaled_local(Vector3.ONE * KayKit.WORLD_SCALE), pos)
+		var t := Transform3D(yaw, pos)
 		_append_piece(pieces, model, t)
 		if kind == &"candles":
 			continue
 		var shape := BoxShape3D.new()
-		shape.size = aabb.size * KayKit.WORLD_SCALE
+		shape.size = aabb.size
 		var col := CollisionShape3D.new()
 		col.shape = shape
 		col.transform = Transform3D(yaw, t * aabb.get_center())
@@ -306,7 +304,7 @@ func _add_wall_torches() -> void:
 	for c in gen.wall_torches:
 		var dir := gen.wall_torches[c]
 		var t: WallTorch = WALL_TORCH_SCENE.instantiate()
-		t.position = cell_to_world(c) + Vector3(dir.x, 0, dir.y) * (CELL / 2.0) + Vector3(0, 1.9, 0)
+		t.position = cell_to_world(c) + Vector3(dir.x, 0, dir.y) * (CELL / 2.0) + Vector3(0, 1.65, 0)
 		t.rotation.y = atan2(float(-dir.x), float(-dir.y))  # +z locale verso la stanza
 		add_child(t)
 

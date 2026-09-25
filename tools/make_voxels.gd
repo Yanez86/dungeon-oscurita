@@ -27,6 +27,12 @@ const MOSS := Color(0.24, 0.33, 0.16)
 const WOOD := Color(0.36, 0.23, 0.13)
 const IRON := Color(0.20, 0.20, 0.21)
 const RIVET := Color(0.38, 0.37, 0.36)
+const WOOD_LIGHT := Color(0.47, 0.33, 0.20)
+const WOOD_RED := Color(0.40, 0.20, 0.13)
+const BRASS := Color(0.55, 0.42, 0.18)
+const WAX := Color(0.82, 0.77, 0.64)
+const WICK := Color(0.10, 0.09, 0.08)
+const CLOTH := Color(0.20, 0.13, 0.08)  ## stoffa impregnata di pece della torcia
 
 var rng := RandomNumberGenerator.new()
 
@@ -43,12 +49,29 @@ func _init() -> void:
 		count += _save(name, _floor_dirt())
 	count += _save("ceiling", _ceiling())
 	for name in ["wall_a", "wall_b", "wall_c"]:
-		count += _save(name, _wall())
-	count += _save("wall_cracked", _wall_cracked())
-	count += _save("wall_shelves", _wall_shelves())
+		count += _save(name, _footed(_wall()))
+	count += _save("wall_cracked", _footed(_wall_cracked()))
+	count += _save("wall_shelves", _footed(_wall_shelves()))
 	count += _save("pillar", _pillar())
 	count += _save("door_frame", _door_frame())
 	count += _save("door_leaf", _door_leaf())
+	# I nuovi modelli vanno in fondo: così quelli sopra ricevono gli stessi numeri casuali e non cambiano.
+	count += _save("barrel_small", _barrel(6, 7))
+	count += _save("barrel_large", _barrel(8, 10, true))
+	count += _save("barrel_stack", _barrel_stack())
+	count += _save("keg", _keg())
+	count += _save("crate_small", _crate(5, false))
+	count += _save("crate_large", _crate(7, false))
+	count += _save("crate_decorated", _crate(5, true))
+	count += _save("crates_stacked", _crates_stacked())
+	count += _save("trunk_small_a", _trunk(Vector3i(7, 5, 5), WOOD, IRON))
+	count += _save("trunk_small_b", _trunk(Vector3i(7, 5, 5), WOOD_RED, BRASS))
+	count += _save("trunk_medium_a", _trunk(Vector3i(9, 6, 5), WOOD, IRON))
+	count += _save("trunk_medium_b", _trunk(Vector3i(9, 6, 5), WOOD_RED, BRASS))
+	count += _save("candle", _candle())
+	count += _save("candle_triple", _candle_triple())
+	count += _save("candle_melted", _candle_melted())
+	count += _save("wall_torch", _wall_torch())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -144,11 +167,22 @@ func _ceiling() -> VoxModel:
 
 
 # --- Muri --------------------------------------------------------------------
-# Pannello 16 x 24 x 8: il muro occupa z 0..3, la faccia a vista è su z = 3 (l'origine).
+# Pannello 16 x 24 x 8 (26 con la fondazione): il muro occupa z 0..3, la faccia a vista è su z = 3 (l'origine).
 # Tutto ciò che sporge verso la stanza (mattoni in rilievo, mensole) sta in z 4..7.
 
 const WALL_D := 8
 const WALL_FRONT := 3
+
+
+## Fondazione: il pannello scende di FLOOR_T voxel sotto il pavimento (il builder lo abbassa di tanto).
+## Senza, dalle fughe incassate lungo il muro si vedrebbe il vuoto sotto la parete.
+## Colore pieno, niente numeri casuali: aggiungerla non cambia gli altri modelli.
+func _footed(m: VoxModel) -> VoxModel:
+	var out: VoxModel = VoxModelScript.new(m.size + Vector3i(0, FLOOR_T, 0))
+	for p in m.voxels:
+		out.paint(p + Vector3i(0, FLOOR_T, 0), m.color_at(p))
+	out.fill_box(Vector3i(0, 0, 0), Vector3i(m.size.x - 1, FLOOR_T - 1, WALL_FRONT), _tone(STONE_DARK, -2))
+	return out
 
 
 ## Filari di mattoni 8 x 4 (malta compresa), sfalsati di mezzo mattone: il motivo si ripete ogni 16 voxel,
@@ -303,4 +337,181 @@ func _door_leaf() -> VoxModel:
 	for z in [0, 2]:
 		for p in [Vector2i(5, 8), Vector2i(6, 8), Vector2i(5, 6), Vector2i(6, 6), Vector2i(4, 7), Vector2i(7, 7)]:
 			m.paint(Vector3i(p.x, p.y, z), IRON)
+	return m
+
+
+# --- Arredi ------------------------------------------------------------------
+# Base in y = 0, il davanti (+z) guarda la stanza. Il builder li appoggia al muro.
+
+## Botte verticale dentro `m` a partire da `origin`: doghe, bombata al centro, due cerchi di ferro.
+func _barrel_into(m: VoxModel, origin: Vector3i, diameter: int, height: int, wood: Color) -> void:
+	var center := Vector2(diameter / 2.0, diameter / 2.0)
+	var hoops: Array[int] = [1, height - 2]
+	for y in height:
+		var r := diameter / 2.0 - (0.45 if y == 0 or y == height - 1 else 0.0)
+		for x in diameter:
+			for z in diameter:
+				var off := Vector2(x + 0.5, z + 0.5) - center
+				if off.length() > r:
+					continue
+				var c: Color
+				if y in hoops:
+					c = IRON
+				elif y == height - 1 and off.length() < r - 1.0:
+					c = _tone(wood, -2)  # coperchio
+				else:
+					var stave := int((off.angle() + PI) / TAU * 12.0) % 3  # doghe attorno all'asse
+					c = _tone(wood, [0, -1, 1][stave])
+				m.paint(origin + Vector3i(x, y, z), _jitter(c, 0.2))
+
+
+## `tap`: rubinetto d'ottone sul davanti (il modello è un voxel più profondo).
+func _barrel(diameter: int, height: int, tap := false) -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(diameter, height, diameter + (1 if tap else 0)))
+	_barrel_into(m, Vector3i.ZERO, diameter, height, WOOD_LIGHT)
+	if tap:
+		var x := diameter / 2
+		m.fill_box(Vector3i(x - 1, 2, diameter), Vector3i(x, 2, diameter), BRASS)
+		m.paint(Vector3i(x, 1, diameter), BRASS)
+	return m
+
+
+func _barrel_stack() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(12, 14, 6))
+	_barrel_into(m, Vector3i(0, 0, 0), 6, 7, WOOD_LIGHT)
+	_barrel_into(m, Vector3i(6, 0, 0), 6, 7, _tone(WOOD_LIGHT, -1))
+	_barrel_into(m, Vector3i(3, 7, 0), 6, 7, WOOD)
+	return m
+
+
+## Barilotto coricato su due culle, con il fondo e il rubinetto verso la stanza.
+func _keg() -> VoxModel:
+	var d := 5
+	var length := 7
+	var m: VoxModel = VoxModelScript.new(Vector3i(d, d + 2, length + 1))
+	for z in [1, length - 2]:
+		m.fill_box(Vector3i(0, 0, z), Vector3i(d - 1, 1, z), _tone(WOOD, -2))
+	var center := Vector2(d / 2.0, d / 2.0)
+	for z in length:
+		var end := z == 0 or z == length - 1
+		var r := d / 2.0 - (0.45 if end else 0.0)
+		for x in d:
+			for y in d:
+				var off := Vector2(x + 0.5, y + 0.5) - center
+				if off.length() > r:
+					continue
+				var c := IRON if z == 1 or z == length - 2 else _tone(WOOD_LIGHT, [0, -1, 1][int((off.angle() + PI) / TAU * 12.0) % 3])
+				if end and off.length() < r - 1.0:
+					c = _tone(WOOD_LIGHT, -2)
+				m.paint(Vector3i(x, y + 2, z), _jitter(c, 0.2))
+	m.paint(Vector3i(d / 2, 3, length), BRASS)
+	m.paint(Vector3i(d / 2, 2, length), BRASS)
+	return m
+
+
+## Cassa: spigoli di legno scuro (o ferro), assi orizzontali e una diagonale di rinforzo sui lati.
+func _crate_into(m: VoxModel, origin: Vector3i, s: int, decorated: bool) -> void:
+	var frame := _tone(WOOD, -1)
+	for x in s:
+		for y in s:
+			for z in s:
+				var on := [x == 0 or x == s - 1, y == 0 or y == s - 1, z == 0 or z == s - 1]
+				var edges := int(on[0]) + int(on[1]) + int(on[2])
+				if edges == 0:
+					continue  # interno: non si vede
+				var c: Color
+				if edges >= 2:
+					c = IRON if decorated else frame
+					if decorated and edges == 3:
+						c = RIVET
+				elif on[1]:
+					c = _tone(WOOD_LIGHT, [0, -1][z % 2])  # coperchio ad assi
+				else:
+					var a := z if on[0] else x
+					c = frame if a == y or a == s - 1 - y else _tone(WOOD_LIGHT, [0, -1][(y + 1) / 2 % 2])
+				m.paint(origin + Vector3i(x, y, z), _jitter(c, 0.2))
+
+
+func _crate(s: int, decorated: bool) -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(s, s, s))
+	_crate_into(m, Vector3i.ZERO, s, decorated)
+	return m
+
+
+func _crates_stacked() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(7, 12, 7))
+	_crate_into(m, Vector3i.ZERO, 7, false)
+	_crate_into(m, Vector3i(2, 7, 1), 5, false)
+	return m
+
+
+## Baule: coperchio arrotondato, due fasce di metallo, serratura sul davanti.
+func _trunk(size: Vector3i, wood: Color, band: Color) -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(size)
+	var seam := size.y - 3  # ultima fila della cassa, sopra c'è il coperchio
+	for x in size.x:
+		for y in size.y:
+			for z in size.z:
+				if y == size.y - 1 and (z == 0 or z == size.z - 1):
+					continue  # coperchio bombato
+				var c := _tone(wood, 1 if y > seam else [0, -1][y % 2])
+				if y == seam:
+					c = _tone(wood, -3)
+				if x == 1 or x == size.x - 2:
+					c = band
+				m.paint(Vector3i(x, y, z), _jitter(c, 0.2))
+	var lx := size.x / 2
+	m.fill_box(Vector3i(lx, seam - 1, size.z - 1), Vector3i(lx, seam + 1, size.z - 1), BRASS)
+	m.paint(Vector3i(lx, seam, size.z - 1), WICK)  # buco della serratura
+	return m
+
+
+# Candele spente: nel buio non c'è luce regalata.
+
+func _candle() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 5, 3))
+	m.fill_box(Vector3i(0, 0, 0), Vector3i(2, 0, 2), IRON)
+	m.fill_box(Vector3i(1, 1, 1), Vector3i(1, 3, 1), WAX)
+	m.paint(Vector3i(1, 4, 1), WICK)
+	return m
+
+
+func _candle_triple() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(5, 6, 3))
+	m.fill_box(Vector3i(0, 0, 0), Vector3i(4, 0, 2), _tone(IRON, 1))
+	var heights: Array[int] = [4, 3, 2]
+	for i in 3:
+		var x := i * 2
+		m.fill_box(Vector3i(x, 1, 1), Vector3i(x, heights[i], 1), _tone(WAX, -i))
+		m.paint(Vector3i(x, heights[i] + 1, 1), WICK)
+	m.paint(Vector3i(1, 1, 1), _tone(WAX, -2))  # colature
+	m.paint(Vector3i(3, 1, 2), _tone(WAX, -2))
+	return m
+
+
+func _candle_melted() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 3, 3))
+	for x in 3:
+		for z in 3:
+			if rng.randf() < 0.8 or (x == 1 and z == 1):
+				m.paint(Vector3i(x, 0, z), _tone(WAX, -rng.randi_range(1, 2)))
+	m.paint(Vector3i(1, 1, 1), WAX)
+	m.paint(Vector3i(1, 2, 1), WICK)
+	return m
+
+
+## Torcia a muro 3 x 6 x 8, stessa convenzione dei muri: la faccia del muro è a metà profondità (z = 4),
+## la torcia sporge verso +z. Piastra di ferro, anello, bastone e testa di stoffa annerita.
+## La fiamma non è nel modello: la anima wall_torch.gd.
+func _wall_torch() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 6, WALL_D))
+	m.fill_box(Vector3i(0, 0, 4), Vector3i(2, 2, 4), IRON)
+	for p in [Vector2i(0, 0), Vector2i(2, 0), Vector2i(0, 2), Vector2i(2, 2)]:
+		m.paint(Vector3i(p.x, p.y, 4), RIVET)
+	m.fill_box(Vector3i(1, 0, 5), Vector3i(1, 3, 5), WOOD)
+	m.paint(Vector3i(0, 2, 5), IRON)
+	m.paint(Vector3i(2, 2, 5), IRON)
+	m.paint(Vector3i(1, 2, 6), IRON)
+	m.paint(Vector3i(1, 4, 5), CLOTH)
+	m.paint(Vector3i(1, 5, 5), _tone(CLOTH, -4))
 	return m

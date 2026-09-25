@@ -10,7 +10,7 @@ extends Node3D
 @export var gust_amount := 0.1
 @export var sway := 0.03  ## metri: la fiamma ondeggia e le ombre danzano
 
-const HEAD := Vector3(0.0, 0.62, 0.26)  ## testa della torcia nel modello KayKit (scala 1)
+const HEAD := Vector3(0.0, 0.75, 0.1875)  ## cima della testa della torcia nel modello voxel
 
 var _light := OmniLight3D.new()
 var _flame := MeshInstance3D.new()
@@ -20,18 +20,16 @@ var _light_base := Vector3.ZERO
 
 
 func _ready() -> void:
-	# Modello KayKit: l'origine è sul muro, la torcia sporge lungo +z.
-	var model := KayKit.instance(&"torch_mounted")
-	model.scale = Vector3.ONE * KayKit.WORLD_SCALE
-	add_child(model)
-	var top := HEAD * KayKit.WORLD_SCALE
+	# Modello voxel: l'origine è sulla faccia del muro, la torcia sporge lungo +z.
+	add_child(Voxels.instance(&"wall_torch"))
+	var top := HEAD
 
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.07
-	sphere.height = 0.16
-	sphere.material = _material(light_color, true)
-	_flame.mesh = sphere
-	_flame.position = top + Vector3(0, 0.06, 0)
+	# Fiamma: un voxel luminoso poco più alto che largo.
+	var box := BoxMesh.new()
+	box.size = Vector3(Voxels.VOXEL_SIZE, Voxels.VOXEL_SIZE * 1.5, Voxels.VOXEL_SIZE)
+	box.material = _material(light_color, true)
+	_flame.mesh = box
+	_flame.position = top + Vector3(0, box.size.y / 2.0, 0)
 	add_child(_flame)
 
 	_light.light_color = light_color

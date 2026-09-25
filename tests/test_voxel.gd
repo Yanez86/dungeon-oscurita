@@ -69,8 +69,10 @@ func _test_mesher_winding_and_origin() -> void:
 func _test_assets() -> void:
 	var expected: Dictionary[String, Vector3i] = {
 		"floor_stone_a": Vector3i(16, 2, 16), "floor_dirt_a": Vector3i(16, 2, 16), "ceiling": Vector3i(16, 2, 16),
-		"wall_a": Vector3i(16, 24, 8), "wall_cracked": Vector3i(16, 24, 8), "wall_shelves": Vector3i(16, 24, 8),
+		"wall_a": Vector3i(16, 26, 8), "wall_cracked": Vector3i(16, 26, 8), "wall_shelves": Vector3i(16, 26, 8),
 		"pillar": Vector3i(6, 24, 6), "door_frame": Vector3i(16, 24, 4), "door_leaf": Vector3i(8, 17, 3),
+		"barrel_small": Vector3i(6, 7, 6), "crate_large": Vector3i(7, 7, 7), "trunk_small_a": Vector3i(7, 5, 5),
+		"candle": Vector3i(3, 5, 3), "wall_torch": Vector3i(3, 6, 8),
 	}
 	for model in expected:
 		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel

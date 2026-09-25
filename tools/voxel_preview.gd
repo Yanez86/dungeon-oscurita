@@ -1,10 +1,13 @@
 extends Node
 ## Screenshot di controllo dei modelli voxel (serve la grafica: niente --headless).
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
-## Salva gallery.png (tutti i modelli), room.png (stanza d'ingresso) e door.png (una porta).
+## Salva gallery.png (muri, pavimenti, porta), props.png (arredi e torcia), room.png (stanza d'ingresso), door.png (una porta) e decoration.png (un arredo).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
 	&"ceiling", &"wall_a", &"wall_cracked", &"wall_shelves", &"pillar", &"door_frame", &"door_leaf"]
+const PROPS: Array[StringName] = [&"barrel_small", &"barrel_large", &"barrel_stack", &"keg", &"crate_small", &"crate_large",
+	&"crate_decorated", &"crates_stacked", &"trunk_small_a", &"trunk_small_b", &"trunk_medium_a", &"trunk_medium_b",
+	&"candle", &"candle_triple", &"candle_melted", &"wall_torch"]
 
 var _out := "user://"
 var _seed := 12345
@@ -31,25 +34,8 @@ func _run() -> void:
 	var cam := Camera3D.new()
 	add_child(cam)
 
-	# Galleria: modelli in fila sotto una luce direzionale.
-	var gallery := Node3D.new()
-	add_child(gallery)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -30, 0)
-	sun.shadow_enabled = true
-	gallery.add_child(sun)
-	var x := 0.0
-	for m in MODELS:
-		var mi := Voxels.instance(m)
-		var w := mi.mesh.get_aabb().size.x
-		mi.position = Vector3(x + w / 2.0, 0, 0)
-		gallery.add_child(mi)
-		x += w + 0.5
-	cam.position = Vector3(x / 2.0, 3.5, 11.0)
-	cam.look_at(Vector3(x / 2.0, 1.0, 0))
-	cam.fov = 60
-	await _shot("gallery.png")
-	gallery.queue_free()
+	await _gallery(cam, MODELS, MODELS.size(), "gallery.png")
+	await _gallery(cam, PROPS, 8, "props.png")
 
 	# Dungeon: la stanza d'ingresso e una porta, illuminate da una "torcia" sulla camera.
 	var dungeon := DungeonBuilder.new()
@@ -72,6 +58,17 @@ func _run() -> void:
 		cam.position = p + axis * 2.6 + Vector3(0, 1.5, 0)
 		cam.look_at(p + Vector3(0, 1.2, 0))
 		await _shot("door.png")
+	if not dungeon.gen.decorations.is_empty():
+		# Un arredo visto dal centro della sua cella, un po' indietro.
+		var dc: Vector2i = dungeon.gen.decorations.keys()[0]
+		var wall_dir := Vector3.ZERO
+		for d in DungeonBuilder.DIRS:
+			if not dungeon.gen.is_floor(dc + d):
+				wall_dir += Vector3(d.x, 0, d.y)
+		var dp := dungeon.cell_to_world(dc)
+		cam.position = dp - wall_dir.normalized() * 2.2 + Vector3(0, 1.4, 0)
+		cam.look_at(dp + wall_dir.normalized() * 0.5 + Vector3(0, 0.4, 0))
+		await _shot("decoration.png")
 	get_tree().quit()
 
 
@@ -81,3 +78,32 @@ func _shot(file: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(_out + file)
 	print("Salvato %s  (%d triangoli, %d draw call, %d FPS)" % [_out + file, Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Engine.get_frames_per_second()])
+
+
+## Modelli in file da `per_row`, sotto una luce direzionale; la camera inquadra tutto dall'alto.
+func _gallery(cam: Camera3D, models: Array[StringName], per_row: int, file: String) -> void:
+	var gallery := Node3D.new()
+	add_child(gallery)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50, -30, 0)
+	sun.shadow_enabled = true
+	gallery.add_child(sun)
+	var width := 0.0
+	var x := 0.0
+	var z := 0.0
+	for i in models.size():
+		if i > 0 and i % per_row == 0:
+			x = 0.0
+			z -= 2.5
+		var mi := Voxels.instance(models[i])
+		var w := mi.mesh.get_aabb().size.x
+		mi.position = Vector3(x + w / 2.0, 0, z)
+		gallery.add_child(mi)
+		x += w + 0.5
+		width = maxf(width, x)
+	var center := Vector3(width / 2.0, 0.5, z / 2.0)
+	cam.position = center + Vector3(0, width * 0.3, width * 0.55)
+	cam.look_at(center)
+	cam.fov = 60
+	await _shot(file)
+	gallery.queue_free()
