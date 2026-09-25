@@ -34,7 +34,9 @@ tests/               test headless (generatore, inventario)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
 
-## Comandi (Godot nel PATH come `godot`)
+## Comandi
+Godot **non** è nel PATH. Per i comandi da terminale usa la versione console, che stampa l'output e restituisce il codice d'uscita:
+`C:\Godot\Godot_v4.7.2-stable_win64_console.exe` (in Git Bash: `/c/Godot/Godot_v4.7.2-stable_win64_console.exe`). Qui sotto `godot` sta per questo percorso.
 ```
 godot --headless --import                         # dopo aver aggiunto file o classi
 godot --headless -s res://tests/test_generator.gd # test, esce con 1 se fallisce
