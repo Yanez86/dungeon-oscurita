@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Avvia gioco",
+            "type": "godot",
+            "request": "launch",
+            "project": "${workspaceFolder}"
+        },
+        {
+            "name": "Avvia scena corrente",
+            "type": "godot",
+            "request": "launch",
+            "project": "${workspaceFolder}",
+            "scene": "current"
+        }
+    ]
+}
