@@ -19,7 +19,15 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var torches_min := 1
 @export var flints_per_floor := 1
 
+@export_group("Struttura")
+@export var max_corridor := 12              ## distanza massima tra stanze collegate (celle)
+@export var door_chance := 0.35             ## probabilità di una porta a ogni ingresso di stanza
+@export var wall_torch_floor_chance := 0.5  ## probabilità che un piano abbia torce a muro
+@export var wall_torch_count := Vector2i(2, 5)
+
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
+const DOOR_SCENE := preload("res://scenes/door.tscn")
+const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
 
 var gen: DungeonGenerator
 var _exit_armed := false
@@ -31,6 +39,10 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 		child.queue_free()
 
 	gen = DungeonGenerator.new(map_size.x, map_size.y)
+	gen.max_corridor = max_corridor
+	gen.door_chance = door_chance
+	gen.wall_torch_floor_chance = wall_torch_floor_chance
+	gen.wall_torch_count = wall_torch_count
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 
@@ -52,6 +64,8 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	_add_exit()
 	for c in gen.items:
 		spawn_pickup(gen.items[c], cell_to_world(c))
+	_add_doors()
+	_add_wall_torches()
 
 
 ## Le torce diventano più rare scendendo (GDD: generazione procedurale).
@@ -117,6 +131,28 @@ func _add_collision(walls: Array[Vector2i]) -> void:
 		col.shape = wall_shape
 		col.position = cell_to_world(c) + Vector3(0, WALL_H / 2.0, 0)
 		body.add_child(col)
+
+
+## Il pannello della porta sta lungo x: se il passaggio va lungo x lo si ruota di 90°.
+func _add_doors() -> void:
+	for c in gen.doors:
+		var door: Door = DOOR_SCENE.instantiate()
+		door.width = CELL
+		door.wall_height = WALL_H
+		door.position = cell_to_world(c)
+		if gen.doors[c]:
+			door.rotation.y = PI / 2.0
+		add_child(door)
+
+
+## Torce appese alla faccia del muro, rivolte verso la stanza.
+func _add_wall_torches() -> void:
+	for c in gen.wall_torches:
+		var dir := gen.wall_torches[c]
+		var t: WallTorch = WALL_TORCH_SCENE.instantiate()
+		t.position = cell_to_world(c) + Vector3(dir.x, 0, dir.y) * (CELL / 2.0) + Vector3(0, 1.9, 0)
+		t.rotation.y = atan2(float(-dir.x), float(-dir.y))  # +z locale verso la stanza
+		add_child(t)
 
 
 ## Uscita: un segnale luminoso e un'area che porta al piano successivo.

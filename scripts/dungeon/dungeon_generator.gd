@@ -12,6 +12,14 @@ var rooms: Array[Rect2i] = []
 var start_cell := Vector2i.ZERO
 var exit_cell := Vector2i.ZERO
 var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi Items)
+var doors: Dictionary[Vector2i, bool] = {}  ## cella -> true se il passaggio va lungo x (est-ovest)
+var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
+
+## Parametri: il builder li imposta dai suoi @export prima di generate().
+var max_corridor := 12              ## distanza massima (in celle) tra i centri di stanze collegate
+var door_chance := 0.35             ## probabilità che un ingresso di stanza abbia una porta
+var wall_torch_floor_chance := 0.5  ## probabilità che il piano abbia torce a muro
+var wall_torch_count := Vector2i(2, 5)  ## quante torce a muro (min, max), se ci sono
 
 var _rng := RandomNumberGenerator.new()
 
@@ -27,8 +35,12 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	grid.fill(Cell.WALL)
 	rooms.clear()
 	items.clear()
+	doors.clear()
+	wall_torches.clear()
 
-	for attempt in max_rooms * 4:
+	# Ogni nuova stanza si collega alla più vicina già esistente: corridoi corti.
+	# Le stanze troppo lontane da tutte le altre vengono scartate.
+	for attempt in max_rooms * 10:
 		if rooms.size() >= max_rooms:
 			break
 		var rw := _rng.randi_range(4, 9)
@@ -39,13 +51,18 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 			rw, rh)
 		if _overlaps_any(room):
 			continue
+		var nearest := _nearest_room(room.get_center())
+		if nearest >= 0 and _manhattan(rooms[nearest].get_center(), room.get_center()) > max_corridor:
+			continue
 		_carve_room(room)
-		if not rooms.is_empty():
-			_carve_corridor(rooms[-1].get_center(), room.get_center())
+		if nearest >= 0:
+			_carve_corridor(rooms[nearest].get_center(), room.get_center())
 		rooms.append(room)
 
 	start_cell = rooms[0].get_center()
 	exit_cell = _farthest_room_center(start_cell)
+	_place_doors()
+	_place_wall_torches()
 
 
 ## Sparge gli oggetti nelle stanze, mai in quella d'ingresso né sull'uscita.
@@ -107,7 +124,8 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 	return dist
 
 
-## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, T torcia, A acciarino.
+## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, T torcia, A acciarino,
+## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
 	for y in height:
@@ -117,6 +135,8 @@ func to_ascii() -> String:
 			elif c == exit_cell: out += "E"
 			elif items.get(c) == Items.TORCH: out += "T"
 			elif items.get(c) == Items.FLINT: out += "A"
+			elif doors.has(c): out += "D"
+			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."
 			else: out += "#"
 		out += "\n"
@@ -128,6 +148,76 @@ func _overlaps_any(room: Rect2i) -> bool:
 		if other.grow(1).intersects(room):  # almeno una cella di muro tra le stanze
 			return true
 	return false
+
+
+## Indice della stanza col centro più vicino a `c` (-1 se non ce ne sono).
+func _nearest_room(c: Vector2i) -> int:
+	var best := -1
+	var best_d := 1 << 30
+	for i in rooms.size():
+		var d := _manhattan(rooms[i].get_center(), c)
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
+
+
+func _manhattan(a: Vector2i, b: Vector2i) -> int:
+	return absi(a.x - b.x) + absi(a.y - b.y)
+
+
+func _in_any_room(c: Vector2i) -> bool:
+	for r in rooms:
+		if r.has_point(c):
+			return true
+	return false
+
+
+## Porte nelle strozzature di corridoio subito fuori da una stanza:
+## muro ai due lati, pavimento davanti e dietro. Mai due porte attaccate.
+func _place_doors() -> void:
+	for y in range(1, height - 1):
+		for x in range(1, width - 1):
+			var c := Vector2i(x, y)
+			if not is_floor(c) or _in_any_room(c):
+				continue
+			var along_x := is_floor(c + Vector2i.LEFT) and is_floor(c + Vector2i.RIGHT) \
+				and not is_floor(c + Vector2i.UP) and not is_floor(c + Vector2i.DOWN)
+			var along_y := is_floor(c + Vector2i.UP) and is_floor(c + Vector2i.DOWN) \
+				and not is_floor(c + Vector2i.LEFT) and not is_floor(c + Vector2i.RIGHT)
+			if not (along_x or along_y):
+				continue
+			var a := c + (Vector2i.LEFT if along_x else Vector2i.UP)
+			var b := c + (Vector2i.RIGHT if along_x else Vector2i.DOWN)
+			if not (_in_any_room(a) or _in_any_room(b)):
+				continue  # solo all'ingresso di una stanza
+			if doors.has(a) or doors.has(b):
+				continue
+			if _rng.randf() < door_chance:
+				doors[c] = along_x
+
+
+## In alcuni piani, qualche torcia appesa ai muri delle stanze (mai in quella d'ingresso).
+func _place_wall_torches() -> void:
+	if rooms.size() < 2 or _rng.randf() >= wall_torch_floor_chance:
+		return
+	var sides: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
+	for i in _rng.randi_range(wall_torch_count.x, wall_torch_count.y):
+		for attempt in 20:
+			var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
+			var dir := sides[_rng.randi_range(0, 3)]
+			# Cella di pavimento sul bordo della stanza, dal lato scelto.
+			var c := Vector2i(
+				_rng.randi_range(room.position.x, room.end.x - 1),
+				_rng.randi_range(room.position.y, room.end.y - 1))
+			if dir == Vector2i.LEFT: c.x = room.position.x
+			elif dir == Vector2i.RIGHT: c.x = room.end.x - 1
+			elif dir == Vector2i.UP: c.y = room.position.y
+			else: c.y = room.end.y - 1
+			if is_floor(c + dir) or wall_torches.has(c):
+				continue  # lì c'è un'apertura, non un muro
+			wall_torches[c] = dir
+			break
 
 
 func _carve_room(r: Rect2i) -> void:

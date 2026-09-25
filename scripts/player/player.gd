@@ -36,6 +36,7 @@ const HEAD_CROUCH := 1.0
 
 var inventory: Inventory
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
+var nearby_door: Door = null      ## porta chiusa a portata di mano (per l'HUD)
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _step_progress := 0.0
@@ -89,6 +90,7 @@ func _physics_process(delta: float) -> void:
 
 func _handle_items() -> void:
 	nearby_pickup = _find_nearby_pickup()
+	nearby_door = null if nearby_pickup else _find_nearby_door()
 	if input.select_slot >= 0:
 		inventory.select(input.select_slot)
 	if input.torch_toggle:
@@ -96,7 +98,11 @@ func _handle_items() -> void:
 	if input.new_torch:
 		_light_spare_torch()
 	if input.interact:
-		_pick_up()
+		if nearby_pickup:
+			_pick_up()
+		elif nearby_door:
+			nearby_door.open(self)
+			nearby_door = null
 	if input.drop:
 		_drop_selected()
 
@@ -165,6 +171,21 @@ func _find_nearby_pickup() -> Pickup:
 		if d < best_d:
 			best_d = d
 			best = p
+	return best
+
+
+## La porta chiusa più vicina entro `pickup_range` (le aperte non contano).
+func _find_nearby_door() -> Door:
+	var best: Door = null
+	var best_d := pickup_range
+	for node in get_tree().get_nodes_in_group("door"):
+		var door := node as Door
+		if door == null or door.is_open or door.is_queued_for_deletion():
+			continue
+		var d := Vector2(door.global_position.x - global_position.x, door.global_position.z - global_position.z).length()
+		if d < best_d:
+			best_d = d
+			best = door
 	return best
 
 

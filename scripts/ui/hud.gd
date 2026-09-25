@@ -52,7 +52,12 @@ func _process(delta: float) -> void:
 	if player == null:
 		return
 	var p := player.nearby_pickup
-	_prompt.text = "E  raccogli %s" % p.display_name().to_lower() if p else ""
+	if p:
+		_prompt.text = "E  raccogli %s" % p.display_name().to_lower()
+	elif player.nearby_door:
+		_prompt.text = "E  apri la porta"
+	else:
+		_prompt.text = ""
 
 	_message_left = maxf(_message_left - delta, 0.0)
 	_message.modulate.a = clampf(_message_left, 0.0, 1.0)  # dissolvenza nell'ultimo secondo
