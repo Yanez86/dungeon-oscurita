@@ -25,6 +25,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
 | R | Nuova partita |
 | F3 | Debug |
+| F4 | Filtro retro PS1 on/off |
 | Esc | Libera il mouse |
 
 Il cerchio blu è l'uscita: porta al piano successivo.

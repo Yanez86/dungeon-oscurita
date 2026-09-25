@@ -33,6 +33,7 @@ func _setup_input() -> void:
 	_bind("map_toggle", [KEY_M])
 	_bind("new_run", [KEY_R])
 	_bind("debug_toggle", [KEY_F3])
+	_bind("psx_toggle", [KEY_F4])
 
 
 func _bind(action: StringName, keys: Array) -> void:

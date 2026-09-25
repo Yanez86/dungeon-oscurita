@@ -29,7 +29,8 @@ scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
 scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro), dungeon_builder.gd (3D), door.gd, wall_torch.gd
 scripts/player/      player.gd, player_input.gd, torch.gd
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra)
-scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3)
+scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3), psx_filter.gd (filtro retro, F4)
+shaders/             psx_post.gdshader (post-processing retro PS1)
 tests/               test headless (generatore, inventario)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
