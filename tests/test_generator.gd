@@ -18,6 +18,7 @@ func _init() -> void:
 		_test_doors(s)
 		_test_wall_torches(s)
 		_test_start_room(s)
+		_test_decorations(s)
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -142,6 +143,42 @@ func _test_wall_torches(s: int) -> void:
 	none.start_wall_torches = 0
 	none.generate(s)
 	_check(none.wall_torches.is_empty(), "seed %d: piano senza torce a muro" % s)
+
+
+func _test_decorations(s: int) -> void:
+	var a := Gen.new()
+	var b := Gen.new()
+	for g: Gen in [a, b]:
+		g.decorations_per_room = Vector2i(3, 6)  # tanti arredi: il caso peggiore per i passaggi
+		g.generate(s)
+		g.place_items(4, 1)
+		g.place_decorations()
+	_check(a.decorations == b.decorations, "seed %d: stesso seed, stessi arredi" % s)
+	_check(a.decorations.size() >= a.rooms.size(), "seed %d: arredi piazzati (%d)" % [s, a.decorations.size()])
+	var ok := true
+	for c: Vector2i in a.decorations:
+		ok = ok and a.is_floor(c) and not a.rooms[0].has_point(c)
+		ok = ok and c != a.exit_cell and not a.items.has(c) and not a.wall_torches.has(c)
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				ok = ok and (Vector2i(dx, dy) == Vector2i.ZERO or not a.decorations.has(c + Vector2i(dx, dy)))
+	_check(ok, "seed %d: arredi sul pavimento, distanziati, lontani da oggetti, torce, uscita e ingresso" % s)
+
+	# Con gli arredi come ostacoli, ogni altra cella di pavimento resta raggiungibile.
+	var seen := {a.start_cell: true}
+	var queue: Array[Vector2i] = [a.start_cell]
+	while not queue.is_empty():
+		var c: Vector2i = queue.pop_back()
+		for d: Vector2i in Gen.SIDES:
+			var n := c + d
+			if a.is_floor(n) and not a.decorations.has(n) and not seen.has(n):
+				seen[n] = true
+				queue.append(n)
+	var floors := 0
+	for i in a.grid.size():
+		floors += int(a.grid[i] == Gen.Cell.FLOOR)
+	_check(seen.size() == floors - a.decorations.size(),
+		"seed %d: gli arredi non bloccano nessun passaggio (%d/%d)" % [s, seen.size(), floors - a.decorations.size()])
 
 
 func _check(cond: bool, label: String) -> void:

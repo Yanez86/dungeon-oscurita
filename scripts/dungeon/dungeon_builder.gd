@@ -20,6 +20,7 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var floor_variant_chance := 0.2  ## piastrelle rotte o con erbacce
 @export var wall_variant_chance := 0.25  ## muri crepati
 @export var shelf_chance := 0.06         ## scaffali, solo nelle stanze
+@export var pillar_width := 0.5          ## pilastri negli angoli dei muri (metri)
 
 @export_group("Oggetti per piano")
 @export var torches_first_floor := 4  ## torce di scorta al piano 1
@@ -38,18 +39,21 @@ const WALL_H := 3.0   ## altezza dei muri
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
-const KAYKIT_DIR := "res://assets/models/kaykit/"
-const KAYKIT_TEXTURE := preload("res://assets/models/kaykit/dungeon_texture.png")
 const MODEL_SIZE := 4.0  ## i muri KayKit sono larghi e alti 4 m, spessi 1 m
 
 const ROOM_FLOORS: Array[StringName] = [&"floor_tile_small_broken_A", &"floor_tile_small_broken_B", &"floor_tile_small_weeds_A", &"floor_tile_small_weeds_B"]
 const CORRIDOR_FLOORS: Array[StringName] = [&"floor_dirt_small_A", &"floor_dirt_small_B", &"floor_dirt_small_C", &"floor_dirt_small_D"]
+## Modelli KayKit per ogni tipo d'arredo del generatore.
+const DECORATION_MODELS: Dictionary[StringName, Array] = {
+	&"barrel": [&"barrel_small", &"barrel_small_stack", &"barrel_large", &"keg"],
+	&"crate": [&"box_small", &"box_large", &"crates_stacked", &"box_small_decorated"],
+	&"trunk": [&"trunk_small_A", &"trunk_small_B", &"trunk_medium_A", &"trunk_medium_B"],
+	&"candles": [&"candle_triple", &"candle_melted", &"candle"],
+}
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var gen: DungeonGenerator
 var _exit_armed := false
-var _kaykit_material: StandardMaterial3D
-var _mesh_cache: Dictionary[StringName, Mesh] = {}
 
 
 func build(seed_value: int, floor_number: int = 1) -> void:
@@ -66,6 +70,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.start_wall_torches = start_wall_torches
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
+	gen.place_decorations()
 
 	var floors: Array[Vector2i] = []
 	var walls: Array[Vector2i] = []
@@ -83,6 +88,8 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	var pieces: Dictionary[StringName, Array] = {}
 	_add_floor_pieces(floors, rng, pieces)
 	_add_wall_pieces(walls, rng, pieces)
+	_add_corner_pillars(pieces)
+	_add_decorations(rng, pieces)
 	for model in pieces:
 		_add_model_instances(model, pieces[model])
 	_add_blocks(Vector3(CELL, 0.2, CELL), floors, WALL_H + 0.1, ceiling_color)  # soffitto
@@ -151,6 +158,36 @@ func _add_wall_pieces(walls: Array[Vector2i], rng: RandomNumberGenerator, pieces
 			_append_piece(pieces, model, Transform3D(rot, pos))
 
 
+## Pilastri negli angoli dei muri (rientranti e sporgenti): coprono le giunture tra i pannelli.
+## Un angolo è un vertice della griglia con 1 o 3 celle di pavimento attorno (o 2 in diagonale).
+## Niente pilastri accanto alle porte: il pannello aperto ci passerebbe attraverso.
+func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
+	var body := StaticBody3D.new()
+	add_child(body)
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(pillar_width, WALL_H, pillar_width)
+	var aabb := KayKit.mesh(&"pillar").get_aabb()
+	var size := Vector3(pillar_width / aabb.size.x, WALL_H / aabb.size.y, pillar_width / aabb.size.z)
+	for y in range(1, gen.height):
+		for x in range(1, gen.width):
+			# Le quattro celle attorno al vertice tra (x-1, y-1) e (x, y).
+			var around: Array[Vector2i] = [Vector2i(x - 1, y - 1), Vector2i(x, y - 1), Vector2i(x - 1, y), Vector2i(x, y)]
+			var floors := 0
+			var near_door := false
+			for c in around:
+				floors += int(gen.is_floor(c))
+				near_door = near_door or gen.doors.has(c)
+			var diagonal := floors == 2 and gen.is_floor(around[0]) == gen.is_floor(around[3])
+			if near_door or not (floors == 1 or floors == 3 or diagonal):
+				continue
+			var pos := cell_to_world(Vector2i(x, y)) - Vector3(CELL / 2.0, 0, CELL / 2.0)
+			_append_piece(pieces, &"pillar", Transform3D(Basis.from_scale(size), pos))
+			var col := CollisionShape3D.new()
+			col.shape = shape
+			col.position = pos + Vector3(0, WALL_H / 2.0, 0)
+			body.add_child(col)
+
+
 func _append_piece(pieces: Dictionary[StringName, Array], model: StringName, t: Transform3D) -> void:
 	if not pieces.has(model):
 		pieces[model] = []
@@ -164,39 +201,50 @@ func _in_room(c: Vector2i) -> bool:
 	return false
 
 
+## Arredi contro il muro, girati verso la stanza; il modello varia col seed.
+## La collisione è un blocco della misura del modello (le candele si scavalcano).
+func _add_decorations(rng: RandomNumberGenerator, pieces: Dictionary[StringName, Array]) -> void:
+	var body := StaticBody3D.new()
+	add_child(body)
+	for c in gen.decorations:
+		var kind := gen.decorations[c]
+		var models: Array = DECORATION_MODELS[kind]
+		var model: StringName = models[rng.randi_range(0, models.size() - 1)]
+		# Spinto verso i muri che toccano la cella (due, in un angolo).
+		var push := Vector3.ZERO
+		var facing := Vector2i.ZERO
+		for d in DIRS:
+			if not gen.is_floor(c + d):
+				push += Vector3(d.x, 0, d.y)
+				facing = -d
+		var aabb := KayKit.mesh(model).get_aabb()
+		var half := maxf(aabb.size.x, aabb.size.z) * KayKit.WORLD_SCALE / 2.0
+		var pos := cell_to_world(c) + push * maxf(CELL / 2.0 - half - 0.1, 0.0)
+		var yaw := Basis(Vector3.UP, atan2(float(facing.x), float(facing.y)) + rng.randf_range(-0.3, 0.3))
+		var t := Transform3D(yaw.scaled_local(Vector3.ONE * KayKit.WORLD_SCALE), pos)
+		_append_piece(pieces, model, t)
+		if kind == &"candles":
+			continue
+		var shape := BoxShape3D.new()
+		shape.size = aabb.size * KayKit.WORLD_SCALE
+		var col := CollisionShape3D.new()
+		col.shape = shape
+		col.transform = Transform3D(yaw, t * aabb.get_center())
+		body.add_child(col)
+
+
 ## Tutte le copie di un modello KayKit in un'unica MultiMesh.
 func _add_model_instances(model: StringName, transforms: Array) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _kaykit_mesh(model)
+	mm.mesh = KayKit.mesh(model)
 	mm.instance_count = transforms.size()
 	for i in transforms.size():
 		mm.set_instance_transform(i, transforms[i])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = _shared_kaykit_material()
+	mmi.material_override = KayKit.material()
 	add_child(mmi)
-
-
-## La mesh dentro il file .glb (una scena con un solo MeshInstance3D), caricata una volta sola.
-func _kaykit_mesh(model: StringName) -> Mesh:
-	if not _mesh_cache.has(model):
-		var path := KAYKIT_DIR + model + ".gltf.glb"
-		if not ResourceLoader.exists(path):
-			path = KAYKIT_DIR + model + ".glb"
-		var scene: Node = (load(path) as PackedScene).instantiate()
-		var mi := scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-		_mesh_cache[model] = mi.mesh
-		scene.free()
-	return _mesh_cache[model]
-
-
-## Tutti i pezzi KayKit condividono la stessa texture a palette: un solo materiale.
-func _shared_kaykit_material() -> StandardMaterial3D:
-	if _kaykit_material == null:
-		_kaykit_material = StandardMaterial3D.new()
-		_kaykit_material.albedo_texture = KAYKIT_TEXTURE
-	return _kaykit_material
 
 
 ## Tutti i blocchi uguali in un'unica MultiMesh: veloce anche con migliaia di celle.

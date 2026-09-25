@@ -26,7 +26,7 @@ Ogni funzionalità deve rafforzarne almeno uno:
 ```
 scenes/              main.tscn, player.tscn, pickup.tscn, door.tscn, wall_torch.tscn
 scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
-scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro), dungeon_builder.gd (3D), door.gd, wall_torch.gd
+scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), kaykit.gd (modelli), door.gd, wall_torch.gd
 scripts/player/      player.gd, player_input.gd, torch.gd
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra)
 scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3), psx_filter.gd (filtro retro, F4)

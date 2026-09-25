@@ -74,4 +74,4 @@ Nel nodo `Main` imposta `fixed_seed` al seed della segnalazione: il gioco rigene
 
 ## Crediti
 
-- Modelli 3D: [KayKit – Dungeon Remastered](https://kaylousberg.itch.io/kaykit-dungeon-remastered) di Kay Lousberg (www.kaylousberg.com), licenza CC0. In `assets/models/kaykit/` ci sono solo i `.glb` e la texture condivisa; l'import non estrae le texture (tutti i pezzi usano `dungeon_texture.png`).
+- Modelli 3D: [KayKit – Dungeon Remastered](https://kaylousberg.itch.io/kaykit-dungeon-remastered) di Kay Lousberg (www.kaylousberg.com), licenza CC0. In `assets/models/kaykit/` ci sono solo i `.glb` e la texture condivisa; l'import non estrae le texture (tutti i pezzi usano `dungeon_texture.png`). Nel codice si caricano con `KayKit.mesh()` o `KayKit.instance()`.

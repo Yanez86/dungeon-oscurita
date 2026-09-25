@@ -10,6 +10,8 @@ extends Node3D
 @export var gust_amount := 0.1
 @export var sway := 0.03  ## metri: la fiamma ondeggia e le ombre danzano
 
+const HEAD := Vector3(0.0, 0.62, 0.26)  ## testa della torcia nel modello KayKit (scala 1)
+
 var _light := OmniLight3D.new()
 var _flame := MeshInstance3D.new()
 var _noise := FastNoiseLite.new()
@@ -18,20 +20,11 @@ var _light_base := Vector3.ZERO
 
 
 func _ready() -> void:
-	var tilt := 0.5  # radianti: la torcia sporge in avanti, in cima
-	var stick_len := 0.45
-	var top := Vector3(0.0, cos(tilt), sin(tilt)) * stick_len / 2.0 + Vector3(0, 0, 0.1)
-
-	var stick := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.04
-	cyl.bottom_radius = 0.025
-	cyl.height = stick_len
-	cyl.material = _material(Color(0.35, 0.22, 0.12), false)
-	stick.mesh = cyl
-	stick.position = Vector3(0, 0, 0.1)
-	stick.rotation.x = tilt
-	add_child(stick)
+	# Modello KayKit: l'origine è sul muro, la torcia sporge lungo +z.
+	var model := KayKit.instance(&"torch_mounted")
+	model.scale = Vector3.ONE * KayKit.WORLD_SCALE
+	add_child(model)
+	var top := HEAD * KayKit.WORLD_SCALE
 
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.07

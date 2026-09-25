@@ -16,6 +16,10 @@ var exit_cell := Vector2i.ZERO
 var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi Items)
 var doors: Dictionary[Vector2i, bool] = {}  ## cella -> true se il passaggio va lungo x (est-ovest)
 var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
+var decorations: Dictionary[Vector2i, StringName] = {}  ## cella -> tipo d'arredo (vedi DECORATION_KINDS)
+
+## Arredi: il builder sceglie il modello 3D per ogni tipo. Bloccano il passaggio.
+const DECORATION_KINDS: Array[StringName] = [&"barrel", &"crate", &"trunk", &"candles"]
 
 ## Parametri: il builder li imposta dai suoi @export prima di generate().
 var max_corridor := 12              ## distanza massima (in celle) tra i centri di stanze collegate
@@ -24,6 +28,7 @@ var wall_torch_floor_chance := 0.5  ## probabilità che il piano abbia torce a m
 var wall_torch_count := Vector2i(2, 5)  ## quante torce a muro (min, max), se ci sono
 var start_room_size := Vector2i(3, 4)   ## lato minimo e massimo della stanza d'ingresso
 var start_wall_torches := 2             ## torce a muro nella stanza d'ingresso (sempre illuminata)
+var decorations_per_room := Vector2i(0, 3)  ## arredi per stanza (min, max), esclusa quella d'ingresso
 
 var _rng := RandomNumberGenerator.new()
 
@@ -41,6 +46,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	items.clear()
 	doors.clear()
 	wall_torches.clear()
+	decorations.clear()
 
 	# Ogni nuova stanza si collega alla più vicina già esistente: corridoi corti.
 	# Le stanze troppo lontane da tutte le altre vengono scartate.
@@ -103,6 +109,22 @@ func place_items(torch_count: int, flint_count: int) -> void:
 			if c != exit_cell and not items.has(c):
 				items[c] = id
 				break
+
+
+## Barili, casse, bauli e candele contro i muri delle stanze.
+## Va chiamata dopo place_items(): gli arredi evitano gli oggetti e continuano lo stesso generatore casuale.
+## Stanza d'ingresso sempre sgombra.
+func place_decorations() -> void:
+	decorations.clear()
+	for i in range(1, rooms.size()):
+		var spots := _decoration_spots(rooms[i])
+		for n in _rng.randi_range(decorations_per_room.x, decorations_per_room.y):
+			# Mai due arredi vicini (nemmeno in diagonale): nessuna cella resta chiusa in un angolo.
+			var usable: Array = spots.filter(func(s: Vector2i) -> bool: return not _near_decoration(s))
+			if usable.is_empty():
+				break
+			var cell: Vector2i = usable[_rng.randi_range(0, usable.size() - 1)]
+			decorations[cell] =DECORATION_KINDS[_rng.randi_range(0, DECORATION_KINDS.size() - 1)]
 
 
 func is_floor(c: Vector2i) -> bool:
@@ -254,6 +276,41 @@ func _try_wall_torch(room: Rect2i, dir: Vector2i) -> bool:
 		return false
 	wall_torches[c] = dir
 	return true
+
+
+## Celle del bordo della stanza appoggiate a un muro, lontane dagli ingressi,
+## libere da oggetti, torce a muro e uscita. Il centro della stanza resta sempre percorribile.
+func _decoration_spots(room: Rect2i) -> Array[Vector2i]:
+	var spots: Array[Vector2i] = []
+	for y in range(room.position.y, room.end.y):
+		for x in range(room.position.x, room.end.x):
+			var c := Vector2i(x, y)
+			if c == exit_cell or items.has(c) or wall_torches.has(c):
+				continue
+			var against_wall := false
+			var near_entrance := _is_entrance(c, room)
+			for d in SIDES:
+				against_wall = against_wall or not is_floor(c + d)
+				near_entrance = near_entrance or (room.has_point(c + d) and _is_entrance(c + d, room))
+			if against_wall and not near_entrance:
+				spots.append(c)
+	return spots
+
+
+## Una cella della stanza da cui si esce: confina con un pavimento fuori dalla stanza.
+func _is_entrance(c: Vector2i, room: Rect2i) -> bool:
+	for d in SIDES:
+		if is_floor(c + d) and not room.has_point(c + d):
+			return true
+	return false
+
+
+func _near_decoration(c: Vector2i) -> bool:
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if decorations.has(c + Vector2i(dx, dy)):
+				return true
+	return false
 
 
 func _carve_room(r: Rect2i) -> void:
