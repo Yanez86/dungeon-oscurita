@@ -79,6 +79,9 @@ func _test_closed_door_blocks_sight() -> void:
 	m.open_door(door)
 	m.reveal(Vector2i(2, 2), 8.0)
 	_check(m.is_seen(Vector2i(6, 2)), "aperta la porta, si vede oltre")
+	m.close_door(door)
+	_check(m.is_seen(Vector2i(6, 2)), "richiusa la porta, ciò che si era visto resta sulla mappa")
+	_check(not m.has_line_of_sight(Vector2i(2, 2), Vector2i(6, 2)), "richiusa la porta, la vista si ferma di nuovo")
 
 
 ## Torcia spenta: raggio 0, non si scopre niente.

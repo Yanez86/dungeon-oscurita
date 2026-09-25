@@ -84,6 +84,13 @@ func open_door(c: Vector2i) -> void:
 	_last_cell = Vector2i(-1, -1)
 
 
+## Una porta si è richiusa: ciò che è già disegnato resta com'è (anche la porta,
+## che resta del colore del pavimento); cambia solo la vista da qui in avanti.
+func close_door(c: Vector2i) -> void:
+	if explored:
+		explored.close_door(c)
+
+
 func _cell_color(c: Vector2i) -> Color:
 	var gen := explored.gen
 	if c == gen.exit_cell:

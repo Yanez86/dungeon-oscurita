@@ -80,3 +80,8 @@ func see_through(c: Vector2i) -> bool:
 ## Una porta si è aperta: da ora la vista passa.
 func open_door(c: Vector2i) -> void:
 	closed_doors.erase(c)
+
+
+## Una porta si è richiusa: le celle già viste restano viste, ma da ora la vista si ferma qui.
+func close_door(c: Vector2i) -> void:
+	closed_doors[c] = true

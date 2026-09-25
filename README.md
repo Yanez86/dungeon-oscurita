@@ -19,7 +19,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Ctrl o C | Accovacciarsi (meno rumore) |
 | F | Spegnere la torcia / riaccenderla (serve l'acciarino) |
 | Q | Accendere una torcia di scorta (gratis se quella in mano è accesa, altrimenti serve l'acciarino) |
-| E | Raccogliere l'oggetto vicino / aprire una porta (cigola: fa rumore) |
+| E | Raccogliere l'oggetto vicino / aprire o chiudere una porta (fa rumore) |
 | 1–5 | Scegliere lo slot dell'inventario |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
@@ -28,8 +28,8 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Esc | Libera il mouse |
 
 Il cerchio blu è l'uscita: porta al piano successivo.
-Alcuni corridoi sono chiusi da porte (bloccano anche la luce); in certi piani ci sono torce appese ai muri, che non si consumano.
-Si parte con una torcia accesa e un acciarino; le torce di scorta vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
+Alcuni corridoi sono chiusi da porte (bloccano anche la luce) che si possono richiudere alle spalle; in certi piani ci sono torce appese ai muri, che non si consumano.
+Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torcia a terra. Si parte a mani vuote, con solo un acciarino: raccogli la torcia (E) e accendila (Q). Le altre torce vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
 
 ## Struttura
 

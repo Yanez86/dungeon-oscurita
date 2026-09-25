@@ -36,7 +36,7 @@ const HEAD_CROUCH := 1.0
 
 var inventory: Inventory
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
-var nearby_door: Door = null      ## porta chiusa a portata di mano (per l'HUD)
+var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _step_progress := 0.0
@@ -49,12 +49,14 @@ func _ready() -> void:
 	reset_for_run()
 
 
-## Inizio partita: torcia nuova e inventario iniziale. Tra un piano e l'altro non si chiama.
+## Inizio partita: mani vuote e inventario iniziale; la prima torcia è a terra
+## nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
 func reset_for_run() -> void:
 	inventory.clear()
 	for id in start_items:
 		inventory.add(id)
-	torch.refill()
+	torch.empty()
+	message.emit("Raccogli la torcia a terra (E) e accendila (Q).")
 
 
 func _physics_process(delta: float) -> void:
@@ -101,8 +103,7 @@ func _handle_items() -> void:
 		if nearby_pickup:
 			_pick_up()
 		elif nearby_door:
-			nearby_door.open(self)
-			nearby_door = null
+			_use_door(nearby_door)
 	if input.drop:
 		_drop_selected()
 
@@ -112,7 +113,7 @@ func _toggle_torch() -> void:
 	if torch.lit:
 		torch.extinguish()
 	elif torch.fuel <= 0.0:
-		message.emit("La torcia è consumata: Q per accenderne un'altra.")
+		message.emit("Nessuna torcia accesa in mano: Q per accenderne una.")
 	elif not inventory.has(Items.FLINT):
 		message.emit("Serve un acciarino per riaccenderla.")
 	else:
@@ -143,7 +144,10 @@ func _pick_up() -> void:
 	if not inventory.add(nearby_pickup.item):
 		message.emit("Inventario pieno: G per lasciare qualcosa.")
 		return
-	message.emit("Raccolto: %s" % nearby_pickup.display_name())
+	if nearby_pickup.item == Items.TORCH and torch.fuel <= 0.0:
+		message.emit("Raccolto: %s. Q per accenderla." % nearby_pickup.display_name())
+	else:
+		message.emit("Raccolto: %s" % nearby_pickup.display_name())
 	nearby_pickup.queue_free()
 	nearby_pickup = null
 	NoiseBus.emit_noise(global_position, pickup_loudness, self)
@@ -174,13 +178,21 @@ func _find_nearby_pickup() -> Pickup:
 	return best
 
 
-## La porta chiusa più vicina entro `pickup_range` (le aperte non contano).
+## E su una porta: se è chiusa la apre, se è aperta la richiude (non da dentro il vano).
+func _use_door(door: Door) -> void:
+	if not door.is_open:
+		door.open(self)
+	elif not door.close(self):
+		message.emit("Esci dal vano per chiudere la porta.")
+
+
+## La porta più vicina entro `pickup_range`, aperta o chiusa.
 func _find_nearby_door() -> Door:
 	var best: Door = null
 	var best_d := pickup_range
 	for node in get_tree().get_nodes_in_group("door"):
 		var door := node as Door
-		if door == null or door.is_open or door.is_queued_for_deletion():
+		if door == null or door.is_queued_for_deletion():
 			continue
 		var d := Vector2(door.global_position.x - global_position.x, door.global_position.z - global_position.z).length()
 		if d < best_d:

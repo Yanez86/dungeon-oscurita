@@ -55,7 +55,7 @@ func _process(delta: float) -> void:
 	if p:
 		_prompt.text = "E  raccogli %s" % p.display_name().to_lower()
 	elif player.nearby_door:
-		_prompt.text = "E  apri la porta"
+		_prompt.text = "E  chiudi la porta" if player.nearby_door.is_open else "E  apri la porta"
 	else:
 		_prompt.text = ""
 

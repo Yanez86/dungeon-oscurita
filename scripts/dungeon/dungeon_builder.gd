@@ -7,6 +7,8 @@ extends Node3D
 signal exit_reached
 ## Una porta si è aperta: `cell` è la sua cella nella griglia del generatore.
 signal door_opened(cell: Vector2i)
+## Una porta si è richiusa.
+signal door_closed(cell: Vector2i)
 
 const CELL := 2.0     ## lato di una cella in metri
 const WALL_H := 3.0   ## altezza dei muri
@@ -26,6 +28,8 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var door_chance := 0.35             ## probabilità di una porta a ogni ingresso di stanza
 @export var wall_torch_floor_chance := 0.5  ## probabilità che un piano abbia torce a muro
 @export var wall_torch_count := Vector2i(2, 5)
+@export var start_room_size := Vector2i(3, 4)  ## lato minimo e massimo della stanza d'ingresso
+@export var start_wall_torches := 2            ## la stanza d'ingresso è sempre illuminata
 
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
@@ -45,6 +49,8 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.door_chance = door_chance
 	gen.wall_torch_floor_chance = wall_torch_floor_chance
 	gen.wall_torch_count = wall_torch_count
+	gen.start_room_size = start_room_size
+	gen.start_wall_torches = start_wall_torches
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 
@@ -146,6 +152,7 @@ func _add_doors() -> void:
 			door.rotation.y = PI / 2.0
 		add_child(door)
 		door.opened.connect(door_opened.emit.bind(c))
+		door.closed.connect(door_closed.emit.bind(c))
 
 
 ## Torce appese alla faccia del muro, rivolte verso la stanza.

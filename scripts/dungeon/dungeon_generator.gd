@@ -5,6 +5,8 @@ extends RefCounted
 
 enum Cell { WALL, FLOOR }
 
+const SIDES: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
+
 var width: int
 var height: int
 var grid := PackedByteArray()
@@ -20,6 +22,8 @@ var max_corridor := 12              ## distanza massima (in celle) tra i centri 
 var door_chance := 0.35             ## probabilità che un ingresso di stanza abbia una porta
 var wall_torch_floor_chance := 0.5  ## probabilità che il piano abbia torce a muro
 var wall_torch_count := Vector2i(2, 5)  ## quante torce a muro (min, max), se ci sono
+var start_room_size := Vector2i(3, 4)   ## lato minimo e massimo della stanza d'ingresso
+var start_wall_torches := 2             ## torce a muro nella stanza d'ingresso (sempre illuminata)
 
 var _rng := RandomNumberGenerator.new()
 
@@ -40,11 +44,13 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 
 	# Ogni nuova stanza si collega alla più vicina già esistente: corridoi corti.
 	# Le stanze troppo lontane da tutte le altre vengono scartate.
+	# La prima è la stanza d'ingresso: piccola.
 	for attempt in max_rooms * 10:
 		if rooms.size() >= max_rooms:
 			break
-		var rw := _rng.randi_range(4, 9)
-		var rh := _rng.randi_range(4, 9)
+		var side_range := start_room_size if rooms.is_empty() else Vector2i(4, 9)
+		var rw := _rng.randi_range(side_range.x, side_range.y)
+		var rh := _rng.randi_range(side_range.x, side_range.y)
 		var room := Rect2i(
 			_rng.randi_range(1, width - rw - 2),
 			_rng.randi_range(1, height - rh - 2),
@@ -62,16 +68,27 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	start_cell = rooms[0].get_center()
 	exit_cell = _farthest_room_center(start_cell)
 	_place_doors()
+	_place_start_torches()
 	_place_wall_torches()
 
 
-## Sparge gli oggetti nelle stanze, mai in quella d'ingresso né sull'uscita.
+## Una torcia a terra nella stanza d'ingresso (mai sotto i piedi del giocatore);
+## il resto sparso nelle altre stanze, mai sull'uscita.
 ## Va chiamata subito dopo generate(): continua lo stesso generatore casuale,
 ## quindi stesso seed + stessi conteggi = stessi oggetti negli stessi punti.
 func place_items(torch_count: int, flint_count: int) -> void:
 	items.clear()
+	if torch_count > 0:
+		var start_room := rooms[0]
+		for attempt in 20:
+			var c := Vector2i(
+				_rng.randi_range(start_room.position.x, start_room.end.x - 1),
+				_rng.randi_range(start_room.position.y, start_room.end.y - 1))
+			if c != start_cell:
+				items[c] = Items.TORCH
+				break
 	var to_place: Array[StringName] = []
-	for i in torch_count:
+	for i in torch_count - items.size():
 		to_place.append(Items.TORCH)
 	for i in flint_count:
 		to_place.append(Items.FLINT)
@@ -197,27 +214,46 @@ func _place_doors() -> void:
 				doors[c] = along_x
 
 
-## In alcuni piani, qualche torcia appesa ai muri delle stanze (mai in quella d'ingresso).
+## La stanza d'ingresso è sempre illuminata: torce a muro su lati diversi, se possibile.
+func _place_start_torches() -> void:
+	var room := rooms[0]
+	var used_sides: Array[Vector2i] = []
+	for i in start_wall_torches:
+		for attempt in 20:
+			var dir := SIDES[_rng.randi_range(0, 3)]
+			if used_sides.has(dir) and attempt < 10:
+				continue
+			if _try_wall_torch(room, dir):
+				used_sides.append(dir)
+				break
+
+
+## In alcuni piani, qualche torcia appesa ai muri delle altre stanze.
 func _place_wall_torches() -> void:
 	if rooms.size() < 2 or _rng.randf() >= wall_torch_floor_chance:
 		return
-	var sides: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 	for i in _rng.randi_range(wall_torch_count.x, wall_torch_count.y):
 		for attempt in 20:
 			var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
-			var dir := sides[_rng.randi_range(0, 3)]
-			# Cella di pavimento sul bordo della stanza, dal lato scelto.
-			var c := Vector2i(
-				_rng.randi_range(room.position.x, room.end.x - 1),
-				_rng.randi_range(room.position.y, room.end.y - 1))
-			if dir == Vector2i.LEFT: c.x = room.position.x
-			elif dir == Vector2i.RIGHT: c.x = room.end.x - 1
-			elif dir == Vector2i.UP: c.y = room.position.y
-			else: c.y = room.end.y - 1
-			if is_floor(c + dir) or wall_torches.has(c):
-				continue  # lì c'è un'apertura, non un muro
-			wall_torches[c] = dir
-			break
+			if _try_wall_torch(room, SIDES[_rng.randi_range(0, 3)]):
+				break
+
+
+## Prova ad appendere una torcia al muro della stanza dal lato `dir`.
+## Falso se nel punto scelto c'è un'apertura o già un'altra torcia.
+func _try_wall_torch(room: Rect2i, dir: Vector2i) -> bool:
+	# Cella di pavimento sul bordo della stanza, dal lato scelto.
+	var c := Vector2i(
+		_rng.randi_range(room.position.x, room.end.x - 1),
+		_rng.randi_range(room.position.y, room.end.y - 1))
+	if dir == Vector2i.LEFT: c.x = room.position.x
+	elif dir == Vector2i.RIGHT: c.x = room.end.x - 1
+	elif dir == Vector2i.UP: c.y = room.position.y
+	else: c.y = room.end.y - 1
+	if is_floor(c + dir) or wall_torches.has(c):
+		return false
+	wall_torches[c] = dir
+	return true
 
 
 func _carve_room(r: Rect2i) -> void:

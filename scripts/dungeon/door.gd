@@ -1,7 +1,7 @@
 class_name Door
 extends Node3D
-## Porta chiusa in un corridoio: il giocatore la apre con E.
-## Blocca passaggio e luce finché è chiusa; aprirla cigola (evento rumore).
+## Porta in un corridoio: il giocatore la apre e la richiude con E.
+## Blocca passaggio e luce finché è chiusa; aprirla cigola, chiuderla fa un tonfo (eventi rumore).
 ## Il pannello ruota attorno a un cardine (Pivot) su un lato del corridoio.
 
 @export var width := 2.0           ## larghezza del passaggio (= lato di una cella)
@@ -10,15 +10,20 @@ extends Node3D
 @export var thickness := 0.12
 @export var open_time := 0.6       ## secondi per spalancarsi
 @export var open_loudness := 0.45  ## il cigolio si sente lontano
+@export var close_loudness := 0.4  ## il tonfo della porta che si chiude
+@export var clearance := 0.75      ## metri tra chi chiude e il vano (per non restare incastrati)
 @export var wood_color := Color(0.30, 0.19, 0.11)
 
 ## La porta si è aperta (la minimappa smette di considerarla un muro).
 signal opened
+## La porta si è richiusa: la minimappa già disegnata non cambia, ma la vista torna a fermarsi qui.
+signal closed
 
 var is_open := false
 
 var _pivot := Node3D.new()
 var _collision := CollisionShape3D.new()
+var _tween: Tween
 
 
 func _ready() -> void:
@@ -49,11 +54,36 @@ func open(opener: Node3D) -> bool:
 	_collision.set_deferred("disabled", true)  # niente urti col pannello che ruota
 	var local := to_local(opener.global_position)
 	var angle := PI / 2.0 if local.z > 0.0 else -PI / 2.0  # +90° porta il pannello verso -z
-	create_tween().tween_property(_pivot, "rotation:y", angle, open_time) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_swing_to(angle)
 	NoiseBus.emit_noise(global_position, open_loudness, opener)
 	opened.emit()
 	return true
+
+
+## Vero se `body` è abbastanza fuori dal vano da non finire dentro il pannello.
+func can_close(body: Node3D) -> bool:
+	return absf(to_local(body.global_position).z) >= clearance
+
+
+## Richiude la porta. Restituisce false se era già chiusa o se `closer` è nel vano.
+func close(closer: Node3D) -> bool:
+	if not is_open or not can_close(closer):
+		return false
+	is_open = false
+	_collision.set_deferred("disabled", false)
+	_swing_to(0.0)
+	NoiseBus.emit_noise(global_position, close_loudness, closer)
+	closed.emit()
+	return true
+
+
+## Ruota il pannello (un Tween anima una proprietà nel tempo); un nuovo movimento interrompe il precedente.
+func _swing_to(angle: float) -> void:
+	if _tween:
+		_tween.kill()
+	_tween = create_tween()
+	_tween.tween_property(_pivot, "rotation:y", angle, open_time) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _box(size: Vector3, pos: Vector3) -> MeshInstance3D:

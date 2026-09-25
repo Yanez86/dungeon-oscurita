@@ -17,6 +17,7 @@ func _init() -> void:
 		_test_short_corridors(s)
 		_test_doors(s)
 		_test_wall_torches(s)
+		_test_start_room(s)
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -61,10 +62,27 @@ func _test_items(s: int) -> void:
 	_check(a.items.values().count(&"flint") == 1, "seed %d: un acciarino" % s)
 	var dist := a.distances_from(a.start_cell)
 	var ok := true
+	var in_start: Array[StringName] = []
 	for c: Vector2i in a.items:
-		ok = ok and a.is_floor(c) and c != a.exit_cell and not a.rooms[0].has_point(c)
+		ok = ok and a.is_floor(c) and c != a.exit_cell and c != a.start_cell
 		ok = ok and dist[c.y * a.width + c.x] > 0
-	_check(ok, "seed %d: oggetti raggiungibili, fuori dalla stanza d'ingresso e dall'uscita" % s)
+		if a.rooms[0].has_point(c):
+			in_start.append(a.items[c])
+	_check(ok, "seed %d: oggetti raggiungibili, mai sull'ingresso né sull'uscita" % s)
+	_check(in_start == [Items.TORCH], "seed %d: nella stanza d'ingresso solo una torcia a terra (%s)" % [s, in_start])
+
+
+func _test_start_room(s: int) -> void:
+	var g := Gen.new()
+	g.wall_torch_floor_chance = 0.0  # conta solo le torce della stanza d'ingresso
+	g.generate(s)
+	var r := g.rooms[0]
+	_check(r.size.x <= g.start_room_size.y and r.size.y <= g.start_room_size.y,
+		"seed %d: stanza d'ingresso piccola (%s)" % [s, r.size])
+	var ok: bool = g.wall_torches.size() == g.start_wall_torches
+	for c: Vector2i in g.wall_torches:
+		ok = ok and r.has_point(c) and not g.is_floor(c + g.wall_torches[c])
+	_check(ok, "seed %d: stanza d'ingresso illuminata da %d torce a muro" % [s, g.start_wall_torches])
 
 
 func _test_short_corridors(s: int) -> void:
@@ -111,14 +129,17 @@ func _test_wall_torches(s: int) -> void:
 	g.wall_torch_floor_chance = 1.0
 	g.wall_torch_count = Vector2i(3, 3)
 	g.generate(s)
-	_check(g.wall_torches.size() == 3, "seed %d: 3 torce a muro (%d)" % [s, g.wall_torches.size()])
+	var others := 0
 	var ok := true
 	for c: Vector2i in g.wall_torches:
 		ok = ok and g.is_floor(c) and not g.is_floor(c + g.wall_torches[c])
-		ok = ok and not g.rooms[0].has_point(c)
-	_check(ok, "seed %d: torce a muro appoggiate a un muro, fuori dalla stanza d'ingresso" % s)
+		if not g.rooms[0].has_point(c):
+			others += 1
+	_check(others == 3, "seed %d: 3 torce a muro fuori dalla stanza d'ingresso (%d)" % [s, others])
+	_check(ok, "seed %d: torce a muro appoggiate a un muro" % s)
 	var none := Gen.new()
 	none.wall_torch_floor_chance = 0.0
+	none.start_wall_torches = 0
 	none.generate(s)
 	_check(none.wall_torches.is_empty(), "seed %d: piano senza torce a muro" % s)
 

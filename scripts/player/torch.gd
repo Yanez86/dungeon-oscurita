@@ -54,6 +54,12 @@ func relight() -> bool:
 	return true
 
 
+## Mani vuote: nessuna torcia da accendere finché non se ne prende una.
+func empty() -> void:
+	fuel = 0.0
+	lit = false
+
+
 ## Sostituisce la torcia in mano con una nuova, accesa e piena.
 func refill(amount: float = -1.0) -> void:
 	fuel = max_fuel if amount < 0.0 else minf(fuel + amount, max_fuel)
