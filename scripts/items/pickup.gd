@@ -2,8 +2,13 @@ class_name Pickup
 extends Node3D
 ## Oggetto a terra che il giocatore può raccogliere (tasto E).
 ## Non emette luce: nel buio lo trovi solo avvicinando la torcia.
+## Quando la luce lo raggiunge, il bordo brilla (shader pickup_glow).
+
+const GLOW_SHADER := preload("res://shaders/pickup_glow.gdshader")
 
 @export var item: StringName = Items.TORCH
+@export var glow_color := Color(1.0, 0.8, 0.45)
+@export var glow_strength := 2.5
 
 @onready var _mesh: MeshInstance3D = $Mesh
 
@@ -39,4 +44,10 @@ func _material(color: Color) -> StandardMaterial3D:
 	m.albedo_color = color
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
+	# Secondo passaggio: il guscio luminoso sul bordo.
+	var glow := ShaderMaterial.new()
+	glow.shader = GLOW_SHADER
+	glow.set_shader_parameter("glow_color", glow_color)
+	glow.set_shader_parameter("strength", glow_strength)
+	m.next_pass = glow
 	return m
