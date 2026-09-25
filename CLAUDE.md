@@ -46,6 +46,6 @@ Dopo ogni modifica al codice: lancia test e avvio rapido e verifica che non ci s
 ## Flusso di lavoro
 - Segui la roadmap del GDD (M3 fatta: torce raccoglibili e inventario; prossima M4: eventi rumore e primo nemico, il Cieco).
 - Per funzionalità grandi proponi prima un piano.
-- **Non creare branch**: lavora sul branch corrente. Commit piccoli con messaggio in italiano (la CI esegue i test a ogni push).
+- **Solo `main`, nessun branch** (regola fissa): lavora e fai commit direttamente su `main`, niente branch né pull request. Commit piccoli con messaggio in italiano (la CI esegue i test a ogni push).
 - Incrementa `config/version` in `project.godot` quando si prepara una build per i tester; le build partono con un tag `vX.Y.Z`.
 - Non modificare `.godot/` né `build/` (ignorate da git).
