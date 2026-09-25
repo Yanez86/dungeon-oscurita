@@ -1,0 +1,10 @@
+# Cache di Godot (si rigenera da sola)
+.godot/
+
+# Build esportate
+/build/
+
+# File di sistema
+.DS_Store
+Thumbs.db
+*.tmp

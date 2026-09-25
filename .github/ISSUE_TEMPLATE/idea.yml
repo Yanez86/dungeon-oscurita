@@ -1,0 +1,25 @@
+name: Idea / funzionalità
+description: Proposta di meccanica, contenuto o miglioramento
+labels: [idea]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: L'idea
+    validations:
+      required: true
+  - type: checkboxes
+    id: pillars
+    attributes:
+      label: Quale pilastro rafforza?
+      description: Se non ne rafforza nessuno, probabilmente non serve.
+      options:
+        - label: La luce è vita
+        - label: Il suono è un rischio
+        - label: Combattere è l'ultima spiaggia
+        - label: Insieme o morti
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Quando?
+      options: [Milestone corrente, Dopo, Da discutere]

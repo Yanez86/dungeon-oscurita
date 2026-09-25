@@ -1,0 +1,39 @@
+name: Bug
+description: Qualcosa non funziona
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Versione e seed
+      description: Li trovi in basso a destra nel gioco.
+      placeholder: "v0.1.0  seed 123456  piano 2"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Cosa hai fatto
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Cosa ti aspettavi
+  - type: textarea
+    id: actual
+    attributes:
+      label: Cosa è successo
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Modalità
+      options: [Single player, Coop - host, Coop - client]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log / screenshot
+      description: "Log di Godot: Windows %APPDATA%\\Godot\\app_userdata\\<nome gioco>\\logs · Linux ~/.local/share/godot/app_userdata/<nome gioco>/logs"

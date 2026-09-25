@@ -1,0 +1,60 @@
+# Build Windows e Linux quando crei un tag di versione (es. v0.1.0),
+# oppure a mano da GitHub: Actions > Build > Run workflow.
+# Se configuri i segreti di itch.io, carica anche la build per i tester.
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+  BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}  # Settings > Secrets and variables > Actions
+  ITCH_GAME: ${{ vars.ITCH_GAME }}               # es. "tuonome/dungeon-oscurita"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scarica Godot ed export templates
+        run: |
+          BASE=https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable
+          wget -q $BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q $BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+
+      - name: Importa e testa
+        run: |
+          ./godot --headless --import
+          ./godot --headless -s res://tests/test_generator.gd
+
+      - name: Esporta
+        run: |
+          mkdir -p build/windows build/linux
+          ./godot --headless --export-release "Windows Desktop" build/windows/DungeonOscurita.exe
+          ./godot --headless --export-release "Linux" build/linux/DungeonOscurita.x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: build/linux
+
+      - name: Carica su itch.io
+        if: env.BUTLER_API_KEY != '' && env.ITCH_GAME != ''
+        run: |
+          curl -sL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip && chmod +x butler
+          ./butler push build/windows "$ITCH_GAME:windows" --userversion "$GITHUB_REF_NAME"
+          ./butler push build/linux "$ITCH_GAME:linux" --userversion "$GITHUB_REF_NAME"

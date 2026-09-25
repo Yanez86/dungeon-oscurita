@@ -1,0 +1,21 @@
+; Engine configuration file.
+; Modificabile da Godot: Progetto > Impostazioni del progetto.
+
+config_version=5
+
+[application]
+
+config/name="Dungeon nell'oscurità"
+config/version="0.1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[autoload]
+
+Game="*res://scripts/autoload/game.gd"
+NoiseBus="*res://scripts/autoload/noise_bus.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
