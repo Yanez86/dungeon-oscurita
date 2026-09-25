@@ -56,7 +56,7 @@ func reset_for_run() -> void:
 	for id in start_items:
 		inventory.add(id)
 	torch.empty()
-	message.emit("Raccogli la torcia a terra (E) e accendila (Q).")
+	message.emit("Raccogli la torcia a terra (E), seleziona l'acciarino e accendila (Q).")
 
 
 func _physics_process(delta: float) -> void:
@@ -96,9 +96,9 @@ func _handle_items() -> void:
 	if input.select_slot >= 0:
 		inventory.select(input.select_slot)
 	if input.torch_toggle:
-		_toggle_torch()
+		_extinguish_torch()
 	if input.new_torch:
-		_light_spare_torch()
+		_light_torch()
 	if input.interact:
 		if nearby_pickup:
 			_pick_up()
@@ -108,33 +108,45 @@ func _handle_items() -> void:
 		_drop_selected()
 
 
-## F: spegnere è gratis, riaccendere richiede l'acciarino.
-func _toggle_torch() -> void:
+## F: spegnere è sempre gratis (per riaccendere: acciarino selezionato + Q).
+func _extinguish_torch() -> void:
 	if torch.lit:
 		torch.extinguish()
-	elif torch.fuel <= 0.0:
-		message.emit("Nessuna torcia accesa in mano: Q per accenderne una.")
-	elif not inventory.has(Items.FLINT):
-		message.emit("Serve un acciarino per riaccenderla.")
-	else:
-		torch.relight()
-		NoiseBus.emit_noise(global_position, flint_loudness, self)
+	elif torch.fuel > 0.0 or inventory.has(Items.TORCH):
+		message.emit("Per accenderla seleziona l'acciarino e premi Q.")
 
 
-## Q: accende una torcia di scorta al posto di quella in mano (che si butta).
-## Se quella in mano è accesa si usa la sua fiamma, altrimenti serve l'acciarino.
-func _light_spare_torch() -> void:
-	if not inventory.has(Items.TORCH):
-		message.emit("Nessuna torcia di scorta.")
-		return
-	if not torch.lit:
-		if not inventory.has(Items.FLINT):
-			message.emit("Serve un acciarino per accenderla.")
+## Q: con la torcia in mano accesa se ne accende una di scorta dalla sua fiamma
+## (quella vecchia si butta). Al buio serve l'acciarino selezionato: si riaccende
+## prima la torcia già usata e, se è consumata, una di scorta.
+func _light_torch() -> void:
+	if torch.lit:
+		if not inventory.remove(Items.TORCH):
+			message.emit("Nessuna torcia di scorta.")
 			return
-		NoiseBus.emit_noise(global_position, flint_loudness, self)
-	inventory.remove(Items.TORCH)
-	torch.refill()
-	message.emit("Nuova torcia accesa.")
+		torch.refill()
+		message.emit("Nuova torcia accesa.")
+		return
+
+	var relight := torch.fuel > 0.0
+	if not relight and not inventory.has(Items.TORCH):
+		message.emit("Nessuna torcia da accendere.")
+		return
+	if inventory.selected_item() != Items.FLINT:
+		var slot := inventory.slots.find(Items.FLINT)
+		if slot == -1:
+			message.emit("Serve un acciarino per accenderla.")
+		else:
+			message.emit("Seleziona l'acciarino (%d) e premi Q." % (slot + 1))
+		return
+	NoiseBus.emit_noise(global_position, flint_loudness, self)
+	if relight:
+		torch.relight()
+		message.emit("Torcia riaccesa.")
+	else:
+		inventory.remove(Items.TORCH)
+		torch.refill()
+		message.emit("Nuova torcia accesa.")
 
 
 ## E: raccoglie l'oggetto più vicino, se c'è posto.

@@ -61,6 +61,11 @@ func take(slot: int) -> StringName:
 	return id
 
 
+## Id dell'oggetto nello slot selezionato (&"" se vuoto).
+func selected_item() -> StringName:
+	return slots[selected]
+
+
 func select(slot: int) -> void:
 	if slot >= 0 and slot < slots.size() and slot != selected:
 		selected = slot

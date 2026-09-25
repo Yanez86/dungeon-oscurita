@@ -17,8 +17,8 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | WASD + mouse | Muoversi / guardarsi intorno |
 | Shift | Correre (più rumore) |
 | Ctrl o C | Accovacciarsi (meno rumore) |
-| F | Spegnere la torcia / riaccenderla (serve l'acciarino) |
-| Q | Accendere una torcia di scorta (gratis se quella in mano è accesa, altrimenti serve l'acciarino) |
+| F | Spegnere la torcia |
+| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta); con la torcia accesa ne accende una di scorta dalla fiamma |
 | E | Raccogliere l'oggetto vicino / aprire o chiudere una porta (fa rumore) |
 | 1–5 | Scegliere lo slot dell'inventario |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore) |

@@ -1,7 +1,8 @@
 class_name Hud
 extends CanvasLayer
 ## Interfaccia minima (GDD): nessuna barra della torcia, solo gli slot
-## dell'inventario in basso, poco visibili, e brevi messaggi che svaniscono.
+## dell'inventario in basso, poco visibili, brevi messaggi che svaniscono
+## e, a sinistra, un riquadro vago sulla torcia accesa (vedi torch_buff.gd).
 ## Un CanvasLayer disegna i suoi nodi sopra la scena 3D.
 
 @export var message_time := 2.5  ## secondi prima che un messaggio sparisca
@@ -10,6 +11,7 @@ var player: Player:
 	set = _set_player
 
 var minimap := Minimap.new()
+var torch_buff := TorchBuff.new()
 
 var _slots := HBoxContainer.new()
 var _prompt := Label.new()
@@ -38,11 +40,13 @@ func _ready() -> void:
 	add_child(_message)
 
 	add_child(minimap)
+	add_child(torch_buff)
 
 
 func _set_player(p: Player) -> void:
 	player = p
 	minimap.player = p
+	torch_buff.torch = p.torch
 	player.message.connect(_show_message)
 	player.inventory.changed.connect(_refresh_slots)
 	_refresh_slots()
