@@ -1,15 +1,18 @@
 class_name ExploredMap
 extends RefCounted
 ## Quali celle del piano il giocatore ha visto davvero (solo dati, niente nodi).
-## Una cella è vista se è entro il raggio della torcia e nessun muro la copre.
+## Una cella è vista se è entro il raggio della torcia e nessun muro o porta chiusa la copre.
 
 var gen: DungeonGenerator
 var seen := PackedByteArray()
+var closed_doors: Dictionary[Vector2i, bool] = {}  ## porte ancora chiuse: si vedono, ma non ci si vede attraverso
 
 
 func _init(generator: DungeonGenerator) -> void:
 	gen = generator
 	seen.resize(gen.width * gen.height)  # parte tutto a 0 = non visto
+	for c in gen.doors:
+		closed_doors[c] = true
 
 
 func is_seen(c: Vector2i) -> bool:
@@ -37,7 +40,7 @@ func reveal(origin: Vector2i, radius: float) -> Array[Vector2i]:
 
 
 ## Linea retta (Bresenham) da `a` a `b`: le celle in mezzo devono essere pavimento.
-## La cella finale può essere un muro (i muri si vedono, ma non ci si vede attraverso).
+## La cella finale può essere un muro o una porta chiusa (si vedono, ma non ci si vede attraverso).
 ## Un passo in diagonale tra due muri è bloccato: niente sbirciate dagli spigoli.
 func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 	var x := a.x
@@ -51,7 +54,7 @@ func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 		var c := Vector2i(x, y)
 		if c == b:
 			return true
-		if c != a and not gen.is_floor(c):
+		if c != a and not see_through(c):
 			return false
 		var e2 := 2 * err
 		var nx := x
@@ -62,8 +65,18 @@ func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 		if e2 <= dx:
 			err += dx
 			ny += sy
-		if nx != x and ny != y and not gen.is_floor(Vector2i(nx, y)) and not gen.is_floor(Vector2i(x, ny)):
+		if nx != x and ny != y and not see_through(Vector2i(nx, y)) and not see_through(Vector2i(x, ny)):
 			return false
 		x = nx
 		y = ny
 	return false
+
+
+## Pavimento libero: niente muro e niente porta chiusa.
+func see_through(c: Vector2i) -> bool:
+	return gen.is_floor(c) and not closed_doors.has(c)
+
+
+## Una porta si è aperta: da ora la vista passa.
+func open_door(c: Vector2i) -> void:
+	closed_doors.erase(c)

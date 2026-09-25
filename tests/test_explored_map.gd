@@ -13,6 +13,7 @@ func _init() -> void:
 	_test_wall_blocks_sight()
 	_test_corner_blocks_diagonal()
 	_test_no_light_no_map()
+	_test_closed_door_blocks_sight()
 	for s in [1, 42, 1234]:
 		_test_real_floor(s)
 	print("Test mappa esplorata: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
@@ -58,6 +59,26 @@ func _test_corner_blocks_diagonal() -> void:
 	])
 	var m := Explored.new(g)
 	_check(not m.has_line_of_sight(Vector2i(1, 1), Vector2i(3, 3)), "niente vista tra due muri in diagonale")
+
+
+## Due stanze unite da un corridoio con una porta: chiusa ferma la vista, aperta no.
+func _test_closed_door_blocks_sight() -> void:
+	var g := _make([
+		"000000000",
+		"011101110",
+		"011111110",
+		"011101110",
+		"000000000",
+	])
+	var door := Vector2i(4, 2)
+	g.doors[door] = true
+	var m := Explored.new(g)
+	m.reveal(Vector2i(2, 2), 8.0)
+	_check(m.is_seen(door), "la porta chiusa si vede")
+	_check(not m.is_seen(Vector2i(6, 2)), "oltre la porta chiusa non si vede")
+	m.open_door(door)
+	m.reveal(Vector2i(2, 2), 8.0)
+	_check(m.is_seen(Vector2i(6, 2)), "aperta la porta, si vede oltre")
 
 
 ## Torcia spenta: raggio 0, non si scopre niente.

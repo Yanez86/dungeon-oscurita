@@ -12,6 +12,9 @@ extends Node3D
 @export var open_loudness := 0.45  ## il cigolio si sente lontano
 @export var wood_color := Color(0.30, 0.19, 0.11)
 
+## La porta si è aperta (la minimappa smette di considerarla un muro).
+signal opened
+
 var is_open := false
 
 var _pivot := Node3D.new()
@@ -49,6 +52,7 @@ func open(opener: Node3D) -> bool:
 	create_tween().tween_property(_pivot, "rotation:y", angle, open_time) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	NoiseBus.emit_noise(global_position, open_loudness, opener)
+	opened.emit()
 	return true
 
 

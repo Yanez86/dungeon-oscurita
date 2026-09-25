@@ -5,6 +5,8 @@ extends Node3D
 ## GridMap con i pezzi Kenney o MagicaVoxel, senza toccare il generatore.
 
 signal exit_reached
+## Una porta si è aperta: `cell` è la sua cella nella griglia del generatore.
+signal door_opened(cell: Vector2i)
 
 const CELL := 2.0     ## lato di una cella in metri
 const WALL_H := 3.0   ## altezza dei muri
@@ -143,6 +145,7 @@ func _add_doors() -> void:
 		if gen.doors[c]:
 			door.rotation.y = PI / 2.0
 		add_child(door)
+		door.opened.connect(door_opened.emit.bind(c))
 
 
 ## Torce appese alla faccia del muro, rivolte verso la stanza.

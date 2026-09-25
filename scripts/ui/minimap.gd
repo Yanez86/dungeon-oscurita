@@ -12,6 +12,7 @@ extends Control
 @export var floor_color := Color(0.62, 0.55, 0.45, 0.55)
 @export var wall_color := Color(0.28, 0.25, 0.22, 0.85)
 @export var exit_color := Color(1.0, 0.75, 0.35, 0.9)
+@export var door_color := Color(0.55, 0.33, 0.16, 0.9)  ## porta chiusa
 @export var player_color := Color(1.0, 0.85, 0.6, 0.95)
 @export var background := Color(0, 0, 0, 0.35)
 
@@ -66,13 +67,30 @@ func _update_explored() -> void:
 	var revealed := explored.reveal(cell, radius)
 	if revealed.is_empty():
 		return
-	var gen := explored.gen
 	for c in revealed:
-		var color := floor_color if gen.is_floor(c) else wall_color
-		if c == gen.exit_cell:
-			color = exit_color
-		_image.set_pixelv(c, color)
+		_image.set_pixelv(c, _cell_color(c))
 	_texture.update(_image)
+
+
+## Una porta si è aperta: la si ridisegna come pavimento e si ricalcola
+## la vista subito, perché ora si vede cosa c'è oltre.
+func open_door(c: Vector2i) -> void:
+	if explored == null:
+		return
+	explored.open_door(c)
+	if explored.is_seen(c):
+		_image.set_pixelv(c, _cell_color(c))
+		_texture.update(_image)
+	_last_cell = Vector2i(-1, -1)
+
+
+func _cell_color(c: Vector2i) -> Color:
+	var gen := explored.gen
+	if c == gen.exit_cell:
+		return exit_color
+	if explored.closed_doors.has(c):
+		return door_color
+	return floor_color if gen.is_floor(c) else wall_color
 
 
 func _draw() -> void:
