@@ -61,6 +61,15 @@ func replace(old: StringName, new: StringName) -> bool:
 	return true
 
 
+## Mette l'oggetto in uno slot preciso, se è vuoto (per esempio la torcia nuova al posto di quella buttata).
+func put(slot: int, id: StringName) -> bool:
+	if slot < 0 or slot >= slots.size() or slots[slot] != &"" or id == &"":
+		return false
+	slots[slot] = id
+	changed.emit()
+	return true
+
+
 ## Svuota lo slot indicato e restituisce cosa conteneva (&"" se era vuoto).
 func take(slot: int) -> StringName:
 	if slot < 0 or slot >= slots.size():

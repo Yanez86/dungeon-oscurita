@@ -2,6 +2,7 @@ class_name TorchBuff
 extends PanelContainer
 ## Riquadro "buff" a sinistra, sotto la barra dell'energia (li impila hud.gd), con lo stesso
 ## stile della minimappa: compare solo con la torcia accesa e dice a occhio quanto durerà (niente numeri, GDD).
+## Anche da riposta: non fa luce ma si consuma, e il riquadro lo ricorda.
 ## Il tempo esatto si vede solo nelle build di debug, per i test.
 ## PanelContainer: un contenitore che disegna uno sfondo (StyleBox) dietro ai figli.
 
@@ -30,7 +31,6 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 0)
 	add_child(box)
-	_title.text = "Torcia accesa"
 	_title.modulate = title_color
 	box.add_child(_title)
 	_state.modulate = state_color
@@ -46,6 +46,7 @@ func _process(_delta: float) -> void:
 	visible = torch != null and torch.lit
 	if not visible:
 		return
+	_title.text = "Torcia accesa, riposta" if torch.stowed else "Torcia accesa"
 	_state.text = describe(torch.fuel / torch.max_fuel)
 	if _time.visible:
 		var secs := ceili(torch.fuel)

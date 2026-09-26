@@ -34,7 +34,7 @@ scripts/audio/       sfx.gd (suoni per nome: <nome>.ogg o varianti <nome>_1, _2â
 assets/audio/        suoni .ogg di Kenney (CC0), un nome fisso per ruolo: per cambiarne uno si sovrascrive il file
 tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
 scripts/player/      player.gd, player_input.gd, torch.gd, health.gd (energia, solo dati), journal.gd (diario, solo dati)
-scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola), shield.gd (regole dello scudo, solo dati), bear_trap.gd (tagliola posata)
+scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola), shield.gd (regole dello scudo, solo dati), torches.gd (torce nell'inventario: nuova, in uso, legno bruciato; solo dati), bear_trap.gd (tagliola posata)
 scripts/ui/          hud.gd (slot e messaggi), item_icons.gd (icone = miniature 3D dei modelli item_*), item_slot.gd, health_bar.gd + pips.gd (barra dell'energia), ui_theme.gd (stile dei menu), death_screen.gd (fine partita), debug_overlay.gd (F3, F6/F7), psx_filter.gd (filtro retro, F4)
 scripts/ui/menu/     game_menu.gd (menu a schede: Tab, I, J, Esc) + una pagina per scheda (menu_page.gd Ã¨ la base)
 shaders/             psx_post.gdshader (post-processing retro PS1), pickup_glow.gdshader (aura degli oggetti a terra), icon_outline.gdshader (bordino delle icone)

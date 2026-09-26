@@ -29,7 +29,7 @@ func _build() -> void:
 	health_row.add_child(_health_pips)
 	health_row.add_child(_health_text)
 	_row(grid, "Energia", health_row)
-	_row(grid, "Torcia in mano", _torch)
+	_row(grid, "Torcia in uso", _torch)
 	_row(grid, "Torce di scorta", _spares)
 	_row(grid, "Scudo", _shield)
 	_row(grid, "Inventario", _space)
@@ -66,12 +66,14 @@ func refresh() -> void:
 	_health_text.text = "%d / %d  %s" % [h.hp, h.max_hp, _health_word(h)]
 
 	var t := player.torch
-	if t.lit:
-		_torch.text = "Accesa"
+	if t.is_shining():
+		_torch.text = "Accesa, in mano"
+	elif t.lit:
+		_torch.text = "Accesa ma riposta: brucia senza far luce"
 	elif t.fuel > 0.0:
 		_torch.text = "Spenta (si può riaccendere)"
 	else:
-		_torch.text = "Nessuna: mani vuote"
+		_torch.text = "Nessuna"
 	var spares := player.inventory.count(Items.TORCH)
 	_spares.text = str(spares) if spares > 0 else "Nessuna"
 	if player.inventory.has(Items.SHIELD):

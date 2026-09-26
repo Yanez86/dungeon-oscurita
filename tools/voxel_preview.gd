@@ -96,6 +96,8 @@ func _run() -> void:
 	var player := (load("res://scenes/player.tscn") as PackedScene).instantiate() as Player
 	add_child(player)
 	player.global_position = dungeon.cell_to_world(dungeon.gen.start_cell) + Vector3.UP * 0.1
+	player.inventory.add(Items.TORCH)
+	player.inventory.select(Torches.light_spare(player.inventory))  # in mano: lo slot selezionato
 	player.torch.refill()
 	player.get_node("Head/Camera3D").make_current()
 	await _shot("hand.png")

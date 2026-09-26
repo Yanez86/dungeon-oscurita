@@ -15,7 +15,10 @@ func _init() -> void:
 	_test_take_and_select()
 	_test_changed_signal()
 	_test_replace()
+	_test_put()
 	_test_shield()
+	_test_torches()
+	_test_torch_thrown()
 	print("Test inventario: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -77,6 +80,55 @@ func _test_replace() -> void:
 	_check(inv.replace(It.SHIELD, It.SHIELD_CRACKED) and inv.slots[1] == It.SHIELD_CRACKED, "replace resta nello stesso slot")
 	_check(not inv.replace(It.FLINT, It.TORCH), "replace di un oggetto assente: falso")
 	_check(not inv.replace(It.TORCH, &"") and inv.slots[0] == It.TORCH, "replace non svuota uno slot")
+
+
+func _test_put() -> void:
+	var inv := Inv.new(3)
+	inv.add(It.FLINT)
+	_check(inv.put(2, It.ROPE) and inv.slots[2] == It.ROPE, "put mette l'oggetto nello slot indicato")
+	_check(not inv.put(0, It.TORCH) and inv.slots[0] == It.FLINT, "put non sovrascrive uno slot pieno")
+	_check(not inv.put(-1, It.TORCH) and not inv.put(3, It.TORCH) and not inv.put(1, &""), "put fuori dai limiti o di niente: falso")
+
+
+## Torce: nuova → accesa (fa luce solo se selezionata) → spenta e riaccesa → legno bruciato.
+func _test_torches() -> void:
+	var inv := Inv.new(5)
+	inv.add(It.FLINT)
+	inv.add(It.TORCH)
+	inv.add(It.TORCH)
+	_check(Torches.active_slot(inv) == -1 and not Torches.in_hand(inv), "solo torce nuove: nessuna in uso")
+	_check(Torches.can_light(inv), "con torce nuove c'è qualcosa da accendere")
+	var lit := Torches.light_spare(inv)
+	_check(lit == 2 and inv.slots[2] == It.TORCH_LIT and inv.count(It.TORCH) == 1, "si accende l'ultima torcia nuova, nel suo slot")
+	_check(Torches.light_spare(inv) == -1 and inv.count(It.TORCH) == 1, "una sola torcia in uso alla volta")
+	_check(not Torches.in_hand(inv), "accesa ma con un altro slot selezionato: riposta")
+	inv.select(lit)
+	_check(Torches.in_hand(inv), "selezionata: in mano")
+	_check(Torches.set_lit(inv, false) and inv.slots[lit] == It.TORCH_USED, "spenta: resta in uso, nello stesso slot")
+	_check(Torches.active_slot(inv) == lit and Torches.in_hand(inv), "spenta resta in mano")
+	Torches.set_lit(inv, true)
+	_check(inv.slots[lit] == It.TORCH_LIT, "riaccesa")
+	_check(Torches.burn_out(inv) and inv.slots[lit] == It.TORCH_BURNT, "consumata: legno bruciato nello stesso slot")
+	_check(Torches.active_slot(inv) == -1 and not Torches.in_hand(inv), "il legno bruciato non è una torcia in uso")
+	_check(not Torches.burn_out(inv) and not Torches.set_lit(inv, true), "senza torcia in uso non cambia niente")
+	_check(Torches.light_spare(inv) == 1 and inv.count(It.TORCH_BURNT) == 1, "si accende l'altra; il legno bruciato resta finché non lo si butta")
+
+	var burnt := Inv.new(2)
+	burnt.add(It.TORCH_BURNT)
+	_check(not Torches.can_light(burnt) and Torches.light_spare(burnt) == -1, "col solo legno bruciato non si accende niente")
+
+
+## Buttata la torcia accesa che si ha in mano, quella accesa dalla sua fiamma prende il suo slot e resta in mano.
+func _test_torch_thrown() -> void:
+	var inv := Inv.new(5)
+	inv.add(It.TORCH)
+	inv.add(It.FLINT)
+	inv.add(It.TORCH)
+	var hand := Torches.light_spare(inv)
+	inv.select(hand)
+	inv.take(hand)  # buttata a terra
+	_check(Torches.light_spare(inv, hand) == hand and inv.slots[hand] == It.TORCH_LIT, "la nuova va nello slot di quella buttata")
+	_check(inv.slots[0] == &"" and Torches.in_hand(inv), "lo slot della torcia nuova si libera; la accesa è in mano")
 
 
 ## Lo scudo para 1 danno per colpo: integro → incrinato → rotto (sparisce).

@@ -11,7 +11,7 @@ var move := Vector2.ZERO     ## x = destra/sinistra, y = avanti/indietro
 var sprint := false
 var crouch := false
 var torch_toggle := false
-var new_torch := false    ## accendi una torcia di scorta
+var use_item := false     ## Q: usa l'oggetto selezionato (acciarino, torcia accesa, tagliola)
 var interact := false     ## raccogli l'oggetto vicino
 var drop := false         ## lascia a terra l'oggetto selezionato
 var select_slot := -1     ## slot scelto con i tasti numerici (-1 = nessuno)
@@ -38,14 +38,14 @@ func sample() -> void:
 		sprint = false
 		crouch = false
 		torch_toggle = false
-		new_torch = false
+		use_item = false
 		interact = false
 		return
 	move = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	sprint = Input.is_action_pressed("sprint")
 	crouch = Input.is_action_pressed("crouch")
 	torch_toggle = Input.is_action_just_pressed("torch_toggle")
-	new_torch = Input.is_action_just_pressed("new_torch")
+	use_item = Input.is_action_just_pressed("use_item")
 	interact = Input.is_action_just_pressed("interact")
 
 

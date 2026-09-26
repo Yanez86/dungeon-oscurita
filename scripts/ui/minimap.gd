@@ -51,14 +51,14 @@ func _process(_delta: float) -> void:
 		return
 	_update_explored()
 	var torch := player.torch
-	modulate.a = 1.0 if torch.lit or not dim_when_dark else dark_alpha
+	modulate.a = 1.0 if torch.is_shining() or not dim_when_dark else dark_alpha
 	queue_redraw()
 
 
 ## Rivela solo quando il giocatore cambia cella o la luce cambia davvero.
 func _update_explored() -> void:
 	var torch := player.torch
-	var radius := torch.omni_range / DungeonBuilder.CELL * reveal_scale if torch.lit else 0.0
+	var radius := torch.omni_range / DungeonBuilder.CELL * reveal_scale if torch.is_shining() else 0.0
 	var cell := DungeonBuilder.world_to_cell(player.global_position)
 	if cell == _last_cell and absf(radius - _last_radius) < 0.25:
 		return

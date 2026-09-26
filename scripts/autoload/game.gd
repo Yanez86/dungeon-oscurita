@@ -32,7 +32,7 @@ func _setup_input() -> void:
 	_bind("sprint", [KEY_SHIFT])
 	_bind("crouch", [KEY_CTRL, KEY_C])
 	_bind("torch_toggle", [KEY_F])
-	_bind("new_torch", [KEY_Q])
+	_bind("use_item", [KEY_Q])
 	_bind("interact", [KEY_E])
 	_bind("drop", [KEY_G])
 	for i in SLOT_KEYS:

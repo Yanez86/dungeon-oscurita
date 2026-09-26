@@ -17,11 +17,11 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | WASD + mouse | Muoversi / guardarsi intorno |
 | Shift | Correre (più rumore) |
 | Ctrl o C | Accovacciarsi (meno rumore) |
-| F | Spegnere la torcia |
-| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta). Con la torcia accesa la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una di scorta la accende dalla sua fiamma. Con la tagliola selezionata la posa davanti ai piedi (fa rumore) |
-| E | Raccogliere l'oggetto vicino (una torcia buttata torna in mano) / aprire o chiudere una porta (fa rumore) |
-| 1–5 | Scegliere lo slot dell'inventario |
-| G | Lasciare a terra l'oggetto selezionato (fa rumore) |
+| F | Spegnere la torcia (solo quella in mano: riposta continua a bruciare) |
+| Q | Usare l'oggetto selezionato. Acciarino: accende la torcia (riaccende quella in uso se è spenta, altrimenti una nuova) e la prende in mano; lo scatto si sente. Torcia accesa: la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una nuova la accende dalla sua fiamma. Tagliola: la posa davanti ai piedi (fa rumore) |
+| E | Raccogliere l'oggetto vicino (una torcia buttata torna nell'inventario e in mano) / aprire o chiudere una porta (fa rumore) |
+| 1–5 | Scegliere lo slot dell'inventario: l'oggetto selezionato è quello in mano |
+| G | Lasciare a terra l'oggetto selezionato (fa rumore; il legno bruciato si può solo buttare) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
 | R | Nuova partita |
 | F3 | Debug (anche lo stato di ogni Cieco e la sua distanza) |
@@ -35,7 +35,8 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 Il cerchio blu è l'uscita: porta al piano successivo.
 Alcuni corridoi sono chiusi da porte (bloccano anche la luce) che si possono richiudere alle spalle; in certi piani ci sono torce appese ai muri, che non si consumano.
 Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torcia a terra. Si parte a mani vuote, con solo un acciarino: raccogli la torcia (E) e accendila (Q). Le altre torce vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
-Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi in mano (se ne tieni già una, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
+Ogni torcia occupa uno slot: nuova, accesa (l'icona ha la fiamma), spenta o legno bruciato. La torcia accesa fa luce solo finché è lo slot selezionato: se prendi in mano un altro oggetto la riponi e resti al buio, ma continua a bruciare finché non si consuma. Consumata, nello slot resta il legno bruciato: non serve più e occupa posto finché non lo butti (G). In uso c'è una torcia alla volta.
+Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi (se ne hai già una in uso, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
 In alto a sinistra la barra dell'energia (10 punti: pochi colpi bastano) e, sotto, il riquadro della torcia accesa; in basso gli slot dell'inventario con le icone degli oggetti.
 L'energia non si recupera e passa da un piano all'altro. A zero si muore: la partita finisce con una schermata che riassume piano, tempo, causa e seed; R ne avvia una nuova.
 **Il Cieco** (un Cieco al piano 1, uno in più ogni due piani, fino a 4) sente soltanto. Vaga lento e respira forte: al buio lo senti prima di vederlo. Se sente un rumore corre dove l'ha sentito (4,5 m/s: camminando non gli scappi, correndo sì), annusa qualche secondo e se ne va. Non ti insegue: va sempre verso l'ultimo rumore, quindi fermarsi o accucciarsi (i passi accucciati si sentono solo entro 2 m) lo lascia a mani vuote. Il suono segue i corridoi e le porte chiuse lo attutiscono. Le porte non le apre: se il rumore viene da dietro una porta chiusa gratta per qualche secondo e rinuncia; una porta non si chiude se nel vano c'è qualcuno. Se ti tocca ti toglie 3 punti di energia e si ritrae per 2 secondi: è il momento di allontanarsi in silenzio.

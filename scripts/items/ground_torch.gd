@@ -1,9 +1,9 @@
 class_name GroundTorch
 extends Pickup
-## Torcia usata lasciata a terra dal giocatore (Q, vedi player.gd).
-## Se è accesa continua a bruciare e a fare luce finché ha combustibile; consumata,
-## resta un moncone annerito che non si può più raccogliere.
-## Raccolta (E) torna in mano così com'è, mai nell'inventario: l'inventario ha solo torce nuove.
+## Torcia usata lasciata a terra dal giocatore (Q o G, vedi player.gd).
+## Se è accesa continua a bruciare e a fare luce finché ha combustibile; consumata (o buttata
+## già consumata: legno bruciato) resta un moncone annerito che non si può più raccogliere.
+## Raccolta (E) torna nell'inventario così com'è, accesa o spenta, e in mano (vedi Torches).
 
 @export var burnt_tint := Color(0.22, 0.19, 0.17)  ## colore del moncone consumato
 @export var flame_inset := 0.08  ## metri dalla punta della testa alla fiamma
@@ -32,14 +32,14 @@ func _ready() -> void:
 	_flame.burned_out.connect(_burn_out)
 	if _flame.lit:
 		set_glow(false)  # la fiamma basta a farla notare
-	elif _flame.fuel > 0.0:
-		_flame.visible = false  # spenta: nessuna luce da calcolare
 	else:
-		_burn_out()
+		_flame.visible = false  # spenta: nessuna luce da calcolare
+		if _flame.fuel <= 0.0:
+			_burn_out()
 
 
 func display_name() -> String:
-	return "Torcia accesa" if is_lit() else "Torcia usata"
+	return Items.display_name(Items.TORCH_LIT if is_lit() else Items.TORCH_USED)
 
 
 func is_lit() -> bool:

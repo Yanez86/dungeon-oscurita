@@ -41,8 +41,8 @@ extends CharacterBody3D
 signal message(text: String)
 ## Il giocatore ha lasciato un oggetto: main.gd lo fa comparire nel dungeon.
 signal item_dropped(item: StringName, world_pos: Vector3)
-## Il giocatore ha messo a terra la torcia che aveva in mano (accesa o spenta):
-## main.gd la fa comparire nel dungeon, dove continua a bruciare.
+## Il giocatore ha messo a terra la torcia in uso (accesa o spenta) o del legno bruciato (fuel 0):
+## main.gd la fa comparire nel dungeon, dove (se accesa) continua a bruciare.
 signal torch_dropped(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool)
 ## Ha legato una corda per risalire dalla fossa: la botola la mostra appesa, per chi cade dopo.
 signal rope_hung
@@ -169,9 +169,9 @@ func is_crouching() -> bool:
 
 
 ## La torcia sfugge di mano (per esempio cadendo in una fossa) e resta a terra in `pos`, così com'è.
-## Falso se non se ne aveva una.
+## Falso se non se ne aveva una in mano (quella riposta resta nell'inventario).
 func drop_torch(pos: Vector3) -> bool:
-	if torch.fuel <= 0.0:
+	if not Torches.in_hand(inventory):
 		return false
 	_put_down_torch(pos)
 	message.emit("La torcia ti sfugge di mano!")
@@ -222,8 +222,11 @@ func _is_climbing() -> bool:
 	return _climb_tween != null and _climb_tween.is_running()
 
 
+## In mano o riposta, consumata resta nello slot come legno bruciato.
 func _on_torch_burned_out() -> void:
-	message.emit("La torcia si è consumata.")
+	Torches.burn_out(inventory)
+	torch.empty()
+	message.emit("La torcia si è consumata: resta il legno bruciato (G per buttarlo).")
 	note("La torcia si è consumata.")
 
 
@@ -243,6 +246,7 @@ func _on_died() -> void:
 
 func _physics_process(delta: float) -> void:
 	input.sample()
+	_sync_torch()
 	if health.is_dead():
 		input.consume_look()  # da morti non ci si guarda intorno
 		velocity.x = 0.0
@@ -289,11 +293,8 @@ func _handle_items() -> void:
 		inventory.select(input.select_slot)
 	if input.torch_toggle:
 		_extinguish_torch()
-	if input.new_torch:
-		if inventory.selected_item() == Items.BEAR_TRAP:
-			_place_bear_trap()
-		else:
-			_light_torch()
+	if input.use_item:
+		_use_selected()
 	if input.interact:
 		if nearby_pickup:
 			_pick_up()
@@ -303,54 +304,89 @@ func _handle_items() -> void:
 			_climb_out()
 	if input.drop:
 		_drop_selected()
+	_sync_torch()
 
 
-## F: spegnere è sempre gratis (per riaccendere: acciarino selezionato + Q).
+## La torcia in uso fa luce solo in mano (slot selezionato): riposta brucia al buio.
+## L'id nello slot segue accesa/spenta, anche quando a spegnerla è altro (una folata dalle grate).
+func _sync_torch() -> void:
+	torch.stowed = not Torches.in_hand(inventory)
+	if torch.fuel > 0.0:
+		Torches.set_lit(inventory, torch.lit)
+
+
+## F: spegne la torcia in mano (è gratis; per riaccenderla serve l'acciarino). Riposta non la si
+## spegne: brucia finché non la si riprende in mano o si consuma.
 func _extinguish_torch() -> void:
-	if torch.lit:
+	if torch.lit and Torches.in_hand(inventory):
 		torch.extinguish()
-	elif torch.fuel > 0.0 or inventory.has(Items.TORCH):
-		message.emit("Per accenderla seleziona l'acciarino e premi Q.")
+	elif torch.lit:
+		message.emit("Prendi in mano la torcia (%d) per spegnerla." % (Torches.active_slot(inventory) + 1))
+	elif Torches.can_light(inventory):
+		_light_hint()
 
 
-## Q: con la torcia in mano accesa la si butta a terra, dove continua a bruciare;
-## se c'è una torcia di scorta la si accende dalla sua fiamma. Al buio serve
-## l'acciarino selezionato: si riaccende prima la torcia già usata e, se è
-## consumata, una di scorta.
-func _light_torch() -> void:
-	if torch.lit:
-		var pos := _drop_position(torch_throw_distance)
-		_put_down_torch(pos)
-		NoiseBus.emit_noise(pos, drop_loudness, self)
-		if inventory.remove(Items.TORCH):
-			torch.refill()
-			message.emit("Torcia a terra: ne accendi una nuova dalla sua fiamma.")
-			note("Nuova torcia accesa dalla fiamma di quella a terra.")
-		else:
-			message.emit("Torcia a terra: brucia finché non si consuma. E per riprenderla.")
-			note("Torcia accesa lasciata a terra.")
-		return
+## Q: usa l'oggetto selezionato. Gli oggetti che non si usano (corda, scudo…) dicono come fare luce.
+func _use_selected() -> void:
+	var id := inventory.selected_item()
+	if id == Items.BEAR_TRAP:
+		_place_bear_trap()
+	elif id == Items.TORCH_LIT:
+		_throw_torch()
+	elif id == Items.FLINT:
+		_strike_flint()
+	elif id == Items.TORCH_BURNT:
+		message.emit("Legno bruciato: non fa più luce. G per buttarlo.")
+	else:
+		_light_hint()
 
-	var relight := torch.fuel > 0.0
-	if not relight and not inventory.has(Items.TORCH):
-		message.emit("Nessuna torcia da accendere.")
-		return
-	if inventory.selected_item() != Items.FLINT:
-		var slot := inventory.slots.find(Items.FLINT)
-		if slot == -1:
-			message.emit("Serve un acciarino per accenderla.")
-		else:
-			message.emit("Seleziona l'acciarino (%d) e premi Q." % (slot + 1))
+
+## Q con la torcia accesa in mano: la butta a terra, dove continua a bruciare. Se ce n'è una
+## nuova la accende dalla sua fiamma, e la nuova resta in mano nello stesso slot.
+func _throw_torch() -> void:
+	var slot := inventory.selected
+	var pos := _drop_position(torch_throw_distance)
+	_put_down_torch(pos)
+	NoiseBus.emit_noise(pos, drop_loudness, self)
+	if Torches.light_spare(inventory, slot) != -1:
+		torch.refill()
+		message.emit("Torcia a terra: ne accendi una nuova dalla sua fiamma.")
+		note("Nuova torcia accesa dalla fiamma di quella a terra.")
+	else:
+		message.emit("Torcia a terra: brucia finché non si consuma. E per riprenderla.")
+		note("Torcia accesa lasciata a terra.")
+
+
+## Q con l'acciarino: riaccende la torcia in uso, se è spenta, altrimenti una nuova,
+## e la prende in mano. Lo scatto si sente.
+func _strike_flint() -> void:
+	if torch.lit or not Torches.can_light(inventory):
+		_light_hint()
 		return
 	NoiseBus.emit_noise(global_position, flint_loudness, self)
-	if relight:
+	var slot := Torches.active_slot(inventory)
+	if slot != -1:
 		torch.relight()
+		Torches.set_lit(inventory, true)
 		message.emit("Torcia riaccesa.")
 	else:
-		inventory.remove(Items.TORCH)
+		slot = Torches.light_spare(inventory)
 		torch.refill()
 		message.emit("Nuova torcia accesa.")
 		note("Nuova torcia accesa.")
+	inventory.select(slot)
+
+
+## Cosa serve per fare luce, quando Q (o F) non può farla.
+func _light_hint() -> void:
+	if torch.lit:
+		message.emit("Hai già una torcia accesa: selezionala (%d)." % (Torches.active_slot(inventory) + 1))
+	elif not Torches.can_light(inventory):
+		message.emit("Nessuna torcia da accendere.")
+	elif not inventory.has(Items.FLINT):
+		message.emit("Serve un acciarino per accenderla.")
+	else:
+		message.emit("Seleziona l'acciarino (%d) e premi Q." % (inventory.slots.find(Items.FLINT) + 1))
 
 
 ## E: raccoglie l'oggetto più vicino, se c'è posto.
@@ -363,8 +399,8 @@ func _pick_up() -> void:
 	if not inventory.add(nearby_pickup.item):
 		message.emit("Inventario pieno: G per lasciare qualcosa.")
 		return
-	if nearby_pickup.item == Items.TORCH and torch.fuel <= 0.0:
-		message.emit("Raccolto: %s. Q per accenderla." % nearby_pickup.display_name())
+	if nearby_pickup.item == Items.TORCH and not torch.lit:
+		message.emit("Raccolto: %s. Acciarino e Q per accenderla." % nearby_pickup.display_name())
 	else:
 		message.emit("Raccolto: %s" % nearby_pickup.display_name())
 	note("Raccolto: %s." % nearby_pickup.display_name())
@@ -373,12 +409,20 @@ func _pick_up() -> void:
 	NoiseBus.emit_noise(global_position, pickup_loudness, self)
 
 
-## E su una torcia usata a terra: torna in mano così com'è, accesa o spenta.
-## Se in mano ce n'era un'altra, resta a terra al suo posto (scambio).
+## E su una torcia usata a terra: torna nell'inventario così com'è, accesa o spenta, e in mano.
+## Se ce n'era già una in uso, resta a terra al suo posto (scambio) e la nuova prende il suo slot.
 func _take_ground_torch(ground: GroundTorch) -> void:
-	var swap := torch.fuel > 0.0
+	var slot := Torches.active_slot(inventory)
+	var swap := slot != -1
 	if swap:
 		_put_down_torch(ground.global_position)
+	else:
+		slot = inventory.slots.find(&"")
+		if slot == -1:
+			message.emit("Inventario pieno: G per lasciare qualcosa.")
+			return
+	inventory.put(slot, Items.TORCH_LIT if ground.is_lit() else Items.TORCH_USED)
+	inventory.select(slot)
 	torch.hold(ground.remaining_fuel(), ground.is_lit())
 	ground.queue_free()
 	nearby_pickup = null
@@ -391,18 +435,28 @@ func _take_ground_torch(ground: GroundTorch) -> void:
 	NoiseBus.emit_noise(global_position, pickup_loudness, self)
 
 
-## Mette a terra la torcia che si ha in mano, così com'è: si resta a mani vuote.
+## Mette a terra la torcia in uso, così com'è (accesa o spenta): il suo slot si libera.
 func _put_down_torch(pos: Vector3) -> void:
+	inventory.take(Torches.active_slot(inventory))
 	torch_dropped.emit(pos, torch.fuel, torch.max_fuel, torch.lit)
 	torch.empty()
 
 
-## G: lascia l'oggetto dello slot selezionato davanti ai piedi.
+## G: lascia l'oggetto dello slot selezionato davanti ai piedi. Le torce in uso restano a terra
+## come sono (una accesa continua a bruciare); il legno bruciato diventa un moncone che non si raccoglie.
 func _drop_selected() -> void:
-	var id := inventory.take(inventory.selected)
+	var id := inventory.selected_item()
 	if id == &"":
 		return
-	item_dropped.emit(id, _drop_position(drop_distance))
+	var pos := _drop_position(drop_distance)
+	if id in Torches.IN_USE:
+		_put_down_torch(pos)
+	else:
+		inventory.take(inventory.selected)
+		if id == Items.TORCH_BURNT:
+			torch_dropped.emit(pos, 0.0, torch.max_fuel, false)
+		else:
+			item_dropped.emit(id, pos)
 	NoiseBus.emit_noise(global_position, drop_loudness, self)
 	note("Lasciato a terra: %s." % Items.display_name(id))
 

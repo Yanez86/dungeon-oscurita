@@ -28,7 +28,7 @@ var _halo := MeshInstance3D.new()
 func _ready() -> void:
 	add_to_group("pickup")
 	# Modello voxel "item_<id>" (assets/voxels/): un nuovo oggetto ha solo bisogno del suo .vox.
-	_mesh.mesh = Voxels.mesh(StringName("item_" + item))
+	_mesh.mesh = Voxels.mesh(Items.model(item))
 	_mesh.material_override = _material()
 	if item == Items.TORCH:
 		# Il modello è in piedi (come in mano): lo si corica. Il bastone tocca terra,

@@ -4,6 +4,7 @@ extends OmniLight3D
 ## Nessuna barra: il giocatore capisce che sta finendo guardando la luce e la fiamma che si rimpicciolisce.
 ## Il nodo è la luce e sta nella fiamma; il modello voxel della torcia pende sotto.
 ## Senza modello (held = false) fa da luce e fiamma a una torcia buttata a terra (GroundTorch).
+## Riposta (stowed: il giocatore tiene in mano un altro oggetto) non fa luce ma, se è accesa, si consuma lo stesso.
 
 signal burned_out
 
@@ -22,6 +23,7 @@ signal burned_out
 
 var fuel := 0.0
 var lit := true
+var stowed := false  ## riposta: niente luce, fiamma né modello in mano (lo decide il giocatore, vedi Torches)
 
 var _noise := FastNoiseLite.new()
 var _time := 0.0
@@ -56,15 +58,20 @@ func _process(delta: float) -> void:
 		_noise.get_noise_1d(_time * 6.0 + 200.0),
 		_noise.get_noise_1d(_time * 6.0 + 300.0),
 		0.0) * sway
-	var target := full_energy * lerpf(0.3, 1.0, ratio) * flicker if lit else 0.0
+	var target := full_energy * lerpf(0.3, 1.0, ratio) * flicker if is_shining() else 0.0
 	light_energy = lerpf(light_energy, target, minf(20.0 * delta, 1.0))
 	omni_range = lerpf(min_range, full_range, ratio)
 
 	# La torcia resta ferma in mano: ondeggiano solo luce e fiamma.
 	_hand.position = _hand_base - (position - _base_position)
-	_hand.visible = lit or fuel > 0.0  # a mani vuote non si tiene niente
-	_flame.visible = lit
+	_hand.visible = not stowed and fuel > 0.0  # a mani vuote non si tiene niente
+	_flame.visible = is_shining()
 	_flame.scale = Vector3(1.0, maxf(flicker, 0.3), 1.0) * lerpf(flame_min_scale, 1.0, ratio)
+
+
+## Fa luce: accesa e non riposta.
+func is_shining() -> bool:
+	return lit and not stowed
 
 
 ## Spegnere è sempre gratis; per riaccendere serve un acciarino (lo controlla il giocatore).

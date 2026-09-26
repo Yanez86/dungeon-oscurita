@@ -38,7 +38,7 @@ func _process(_delta: float) -> void:
 		lines.append("Posizione: %s" % str(player.global_position.snapped(Vector3.ONE * 0.1)))
 		var torch := player.get_node_or_null("Head/Torch") as Torch
 		if torch:
-			lines.append("Torcia: %.0f s %s" % [torch.fuel, "" if torch.lit else "(spenta)"])
+			lines.append("Torcia: %.0f s %s%s" % [torch.fuel, "" if torch.lit else "(spenta)", " (riposta)" if torch.stowed else ""])
 	lines.append("Rumore: %s" % "|".repeat(int(NoiseBus.last_loudness * 20.0)))
 	for node in get_tree().get_nodes_in_group("enemy"):
 		var blind := node as Blind
@@ -46,7 +46,7 @@ func _process(_delta: float) -> void:
 			lines.append("Cieco: %s · %.0f m" % [blind.state_name(), blind.global_position.distance_to(player.global_position)])
 	lines.append("")
 	lines.append("WASD muovi · Shift corri · Ctrl accovacciati")
-	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa / posa la tagliola selezionata")
+	lines.append("F spegni la torcia in mano · Q usa l'oggetto selezionato: acciarino accende, torcia accesa la butta a terra, tagliola la posa")
 	lines.append("E raccogli · 1-5 scegli slot · G lascia a terra")
 	lines.append("Tab scheda · I inventario · J diario · Esc impostazioni · R nuova partita")
 	lines.append("F6 / F7  -1 / +1 energia (debug)")
