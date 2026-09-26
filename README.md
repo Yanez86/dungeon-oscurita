@@ -2,7 +2,7 @@
 
 Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tutto, combattimento come ultima spiaggia.
 
-**Motore:** Godot 4.7 · **Stato:** prototipo (M0–M3)
+**Motore:** Godot 4.7 · **Stato:** prototipo (M0–M5)
 
 ## Avvio
 
@@ -38,7 +38,8 @@ Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torc
 Ogni torcia occupa uno slot: nuova, accesa (l'icona ha la fiamma), spenta o legno bruciato. La torcia accesa fa luce solo finché è lo slot selezionato: se prendi in mano un altro oggetto la riponi e resti al buio, ma continua a bruciare finché non si consuma. Consumata, nello slot resta il legno bruciato: non serve più e occupa posto finché non lo butti (G). In uso c'è una torcia alla volta.
 Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi (se ne hai già una in uso, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
 In alto a sinistra la barra dell'energia (10 punti: pochi colpi bastano) e, sotto, il riquadro della torcia accesa; in basso gli slot dell'inventario con le icone degli oggetti.
-L'energia non si recupera e passa da un piano all'altro. A zero si muore: la partita finisce con una schermata che riassume piano, tempo, causa e seed; R ne avvia una nuova.
+L'energia non si recupera e passa da un piano all'altro. A zero si muore: la partita finisce con una schermata che riassume piano, tempo, tesori messi in salvo, causa e seed; R ne avvia una nuova.
+**Fine della discesa**: i piani sono 6 (`floors` nel nodo `Main`). La scala dell'ultimo piano porta fuori: si esce vivi, i tesori che hai addosso vanno nel punteggio e compare la schermata "Sei uscito vivo". R avvia una nuova partita.
 **Il Cieco** (un Cieco al piano 1, uno in più ogni due piani, fino a 4) sente soltanto. Vaga lento e respira forte: al buio lo senti prima di vederlo. Se sente un rumore corre dove l'ha sentito (4,5 m/s: camminando non gli scappi, correndo sì), annusa qualche secondo e se ne va. Non ti insegue: va sempre verso l'ultimo rumore, quindi fermarsi o accucciarsi (i passi accucciati si sentono solo entro 2 m) lo lascia a mani vuote. Il suono segue i corridoi e le porte chiuse lo attutiscono. Le porte non le apre: se il rumore viene da dietro una porta chiusa gratta per qualche secondo e rinuncia; una porta non si chiude se nel vano c'è qualcuno. Se ti tocca ti toglie 3 punti di energia e si ritrae per 2 secondi: è il momento di allontanarsi in silenzio.
 **Scudo** (a volte a terra in un piano): basta averlo nell'inventario, para 1 danno di ogni colpo. Al primo colpo diventa "scudo incrinato", al secondo si rompe. Lo stato si vede nella scheda del giocatore (Tab).
 **Tagliola** (1–2 a terra per piano): selezionala e premi Q per posarla davanti ai piedi. Si arma dopo un secondo; il Cieco non la vede, ci finisce dentro e resta bloccato 3 secondi. Lo scatto si sente lontano e può richiamare altri Ciechi. Usa e getta; per ora non scatta sui giocatori.

@@ -18,7 +18,7 @@ var health_bar := HealthBar.new()
 var torch_buff := TorchBuff.new()
 var icons := ItemIcons.new()  ## icone degli oggetti, condivise con il menu
 var menu := GameMenu.new()     ## scheda, inventario, diario, impostazioni (Tab, I, J, Esc)
-var death_screen := DeathScreen.new()  ## fine partita (la mostra main.gd)
+var end_screen := EndScreen.new()  ## fine partita, da morti o usciti vivi (la mostra main.gd)
 
 var _status := VBoxContainer.new()  ## colonna in alto a sinistra: energia, poi torcia
 var _slots := HBoxContainer.new()
@@ -66,7 +66,7 @@ func _ready() -> void:
 
 	add_child(minimap)
 	add_child(icons)
-	add_child(death_screen)
+	add_child(end_screen)
 	menu.icons = icons
 	add_child(menu)
 

@@ -6,6 +6,7 @@ const SLOT_KEYS := 8  ## tasti numerici per scegliere lo slot dell'inventario (5
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)
 var floor_number: int = 1  ## piano corrente
+var last_floor := 6        ## l'ultimo piano: scendendo la sua scala si esce vivi (lo imposta main.gd)
 var run_time := 0.0        ## secondi passati nel dungeon in questa partita (scheda del giocatore)
 var score := 0            ## punti dei tesori messi in salvo portandoli giù per la scala (vedi Treasures)
 var run_over := false      ## il giocatore è morto: il tempo si ferma finché non parte una nuova partita

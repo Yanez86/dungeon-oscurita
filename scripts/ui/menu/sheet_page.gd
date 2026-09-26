@@ -60,7 +60,7 @@ func refresh() -> void:
 		return
 	_name.text = player.player_name
 	var secs := int(Game.run_time)
-	_subtitle.text = "Piano %d  ·  %d:%02d nel buio" % [Game.floor_number, secs / 60, secs % 60]
+	_subtitle.text = "Piano %d di %d  ·  %d:%02d nel buio" % [Game.floor_number, Game.last_floor, secs / 60, secs % 60]
 
 	var h := player.health
 	_health_pips.count = h.max_hp

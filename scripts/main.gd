@@ -1,7 +1,9 @@
 extends Node3D
-## Avvia la partita, genera i piani e gestisce il passaggio da un piano all'altro e la morte.
+## Avvia la partita, genera i piani e gestisce il passaggio da un piano all'altro, la morte e l'uscita
+## dall'ultimo piano.
 
 @export var fixed_seed := 0  ## 0 = casuale. Impostalo per riprodurre il piano di una segnalazione.
+@export var floors := 6  ## piani della discesa (GDD: 5-8): la scala dell'ultimo porta fuori
 
 const BEAR_TRAP_SCENE := preload("res://scenes/bear_trap.tscn")
 
@@ -19,6 +21,7 @@ func _ready() -> void:
 	dungeon.door_closed.connect(hud.minimap.close_door)
 	player.health.died.connect(_on_player_died)
 	hud.player = player
+	Game.last_floor = floors
 	start_run(fixed_seed if fixed_seed != 0 else randi() % 1000000)
 
 
@@ -28,7 +31,8 @@ func start_run(run_seed: int) -> void:
 	Game.run_time = 0.0
 	Game.score = 0
 	Game.run_over = false
-	hud.death_screen.disappear()
+	hud.end_screen.disappear()
+	player.process_mode = Node.PROCESS_MODE_INHERIT  # dopo un'uscita era fermo
 	player.reset_for_run()
 	_load_floor()
 
@@ -36,7 +40,7 @@ func start_run(run_seed: int) -> void:
 ## Energia a zero: la partita finisce (niente rianimazione per ora, GDD). R ne avvia una nuova.
 func _on_player_died() -> void:
 	Game.run_over = true
-	hud.death_screen.appear(player.death_cause, Treasures.carried_value(player.inventory))
+	hud.end_screen.appear_dead(player.death_cause, Treasures.carried_value(player.inventory))
 
 
 ## L'inventario e la torcia restano quelli del piano precedente.
@@ -45,7 +49,9 @@ func _load_floor() -> void:
 	player.global_position = dungeon.cell_to_world(dungeon.gen.start_cell) + Vector3.UP * 0.1
 	player.velocity = Vector3.ZERO
 	hud.minimap.start_floor(dungeon.gen)  # ogni piano si esplora da zero
-	player.note("Entri nel dungeon." if Game.floor_number == 1 else "Scendi al piano %d." % Game.floor_number)
+	player.note("Entri nel dungeon." if Game.floor_number == 1 else "Scendi al piano %d di %d." % [Game.floor_number, Game.last_floor])
+	if Game.floor_number == Game.last_floor:
+		player.message.emit("Ultimo piano: la scala dietro la porta dorata porta fuori.")
 	print("Piano %d (seed partita %d)\n%s" % [Game.floor_number, Game.run_seed, dungeon.traps.to_ascii()])
 
 
@@ -58,7 +64,7 @@ func _spawn_bear_trap(world_pos: Vector3) -> void:
 
 
 ## Giù per la scala: i tesori che hai addosso sono in salvo (escono dall'inventario, il loro valore va nel
-## punteggio), poi il piano successivo.
+## punteggio), poi il piano successivo. Dall'ultimo piano si esce vivi: la partita finisce, R ne avvia una nuova.
 func _on_exit_reached() -> void:
 	Sfx.play_at(player, &"stairs_down", player.global_position)
 	var banked := Treasures.bank(player.inventory)
@@ -66,8 +72,19 @@ func _on_exit_reached() -> void:
 		Game.score += banked
 		player.message.emit("Tesori in salvo: +%d punti (totale %d)." % [banked, Game.score])
 		player.note("Tesori messi in salvo: +%d punti (totale %d)." % [banked, Game.score])
+	if Game.floor_number >= Game.last_floor:
+		_escape.call_deferred()
+		return
 	Game.floor_number += 1
 	_load_floor.call_deferred()  # non ricostruire la fisica dentro un suo callback
+
+
+## Fuori dal dungeon: il giocatore si ferma (niente più passi, torcia né danni) e compare la schermata finale.
+func _escape() -> void:
+	Game.run_over = true
+	player.note("Sei uscito vivo dal dungeon, con %d punti di tesori." % Game.score)
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.end_screen.appear_escaped()
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -130,7 +130,7 @@ static func by_cause(cause: String) -> String:
 ## il resto toglie energia e fa gridare (suono e rumore). Ricorda la causa (con l'articolo: "il Cieco")
 ## per il diario e la schermata di morte ("Ucciso dal Cieco."). Restituisce l'energia tolta davvero.
 func hurt(amount: int, cause: String) -> int:
-	if amount <= 0 or health.is_dead():
+	if amount <= 0 or health.is_dead() or Game.run_over:  # uscito vivo: la partita è finita
 		return 0
 	var shield := Shield.absorb(inventory, amount)
 	var blocked := Shield.BLOCK if shield != Shield.Result.NONE else 0
@@ -148,7 +148,7 @@ func hurt(amount: int, cause: String) -> int:
 
 ## Morte certa (schiacciati da un masso, nessuna via d'uscita): niente parate.
 func kill(cause: String) -> void:
-	if health.is_dead():
+	if health.is_dead() or Game.run_over:
 		return
 	death_cause = cause
 	var taken := health.damage(health.hp)
