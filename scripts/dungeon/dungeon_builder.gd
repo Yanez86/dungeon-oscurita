@@ -42,6 +42,9 @@ const GROUND_TORCH_SCENE := preload("res://scenes/ground_torch.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
 const FLOOR_T := 0.25  ## spessore dei modelli di pavimento e soffitto
+## Il pilastro è un filo più largo del modello: il fusto (±0,25 m) cadrebbe proprio sul confine tra due strati
+## dei muri, e nelle fughe incassate le due facce sfarfallerebbero (z-fighting). 2% = 5 mm, non si nota.
+const PILLAR_GROW := 1.02
 
 ## Modelli voxel: le varianti "normali" si alternano, le altre compaiono con le probabilità in Aspetto.
 const ROOM_FLOORS: Array[StringName] = [&"floor_stone_a", &"floor_stone_b", &"floor_stone_c"]
@@ -201,7 +204,7 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 			if not (floors == 1 or floors == 3 or diagonal):
 				continue
 			var pos := cell_to_world(Vector2i(x, y)) - Vector3(CELL / 2.0, 0, CELL / 2.0)
-			_append_piece(pieces, &"pillar", Transform3D(Basis(), pos))
+			_append_piece(pieces, &"pillar", Transform3D(Basis().scaled(Vector3(PILLAR_GROW, 1.0, PILLAR_GROW)), pos))
 			var col := CollisionShape3D.new()
 			col.shape = shape
 			col.position = pos + Vector3(0, WALL_H / 2.0, 0)

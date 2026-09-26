@@ -15,6 +15,7 @@ func _init() -> void:
 	_test_mesher_culls_hidden_faces()
 	_test_mesher_winding_and_origin()
 	_test_assets()
+	_test_wall_ends_shallow()
 	print("Test voxel: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -78,6 +79,20 @@ func _test_assets() -> void:
 	for model in expected:
 		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel
 		_check(m != null and m.size == expected[model], "modello %s con misure %s" % [model, expected[model]])
+
+
+## Negli angoli sporgenti i pannelli si incrociano: nelle 2 colonne di testa, dietro lo strato della malta (z = 2)
+## non deve esserci niente, altrimenti la testata sfarfalla sulla faccia dell'altro muro.
+## (Dietro il buco di un mattone caduto gli strati restano, apposta.)
+func _test_wall_ends_shallow() -> void:
+	for model in ["wall_a", "wall_b", "wall_c", "wall_cracked", "wall_shelves"]:
+		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel
+		var deep := 0
+		for y in m.size.y:
+			for x in [0, 1, m.size.x - 2, m.size.x - 1]:
+				if m.has_voxel(Vector3i(x, y, 2)):
+					deep += int(m.has_voxel(Vector3i(x, y, 0))) + int(m.has_voxel(Vector3i(x, y, 1)))
+		_check(deep == 0, "%s: testate profonde solo 2 voxel" % model)
 
 
 func _triangles(mesh: ArrayMesh) -> int:

@@ -49,9 +49,9 @@ func _init() -> void:
 		count += _save(name, _floor_dirt())
 	count += _save("ceiling", _ceiling())
 	for name in ["wall_a", "wall_b", "wall_c"]:
-		count += _save(name, _footed(_wall()))
-	count += _save("wall_cracked", _footed(_wall_cracked()))
-	count += _save("wall_shelves", _footed(_wall_shelves()))
+		count += _save(name, _panel(_wall()))
+	count += _save("wall_cracked", _panel(_wall_cracked()))
+	count += _save("wall_shelves", _panel(_wall_shelves()))
 	count += _save("pillar", _pillar())
 	count += _save("door_frame", _door_frame())
 	count += _save("door_leaf", _door_leaf())
@@ -184,6 +184,23 @@ func _footed(m: VoxModel) -> VoxModel:
 	for p in m.voxels:
 		out.paint(p + Vector3i(0, FLOOR_T, 0), m.color_at(p))
 	out.fill_box(Vector3i(0, 0, 0), Vector3i(m.size.x - 1, FLOOR_T - 1, WALL_FRONT), _tone(STONE_DARK, -2))
+	return out
+
+
+## Rifinitura comune dei pannelli: fondazione, poi via gli strati dietro la malta nelle 2 colonne a ogni estremità.
+## Negli angoli sporgenti due pannelli si incrociano e la testata di uno cadrebbe sullo stesso piano
+## della faccia a vista dell'altro: le due superfici si contendono i pixel e sfarfallano ("z-fighting").
+## Così la testata è profonda solo 2 voxel e finisce dentro il pilastro (fusto largo ±2 voxel);
+## gli strati tolti restano coperti dallo strato della malta dell'altro pannello.
+## Niente numeri casuali: gli altri modelli non cambiano.
+func _panel(m: VoxModel) -> VoxModel:
+	var out := _footed(m)
+	for y in out.size.y:
+		for x in [0, 1, CELL - 2, CELL - 1]:
+			if not out.has_voxel(Vector3i(x, y, WALL_FRONT - 1)):
+				continue  # dietro il buco di un mattone caduto: si vedrebbe il vuoto
+			for z in WALL_FRONT - 1:
+				out.erase_voxel(Vector3i(x, y, z))
 	return out
 
 
