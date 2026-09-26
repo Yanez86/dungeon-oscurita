@@ -19,6 +19,7 @@ func _init() -> void:
 		_test_wall_torches(s)
 		_test_start_room(s)
 		_test_decorations(s)
+	_test_start_torch_always()
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -71,6 +72,23 @@ func _test_items(s: int) -> void:
 			in_start.append(a.items[c])
 	_check(ok, "seed %d: oggetti raggiungibili, mai sull'ingresso né sull'uscita" % s)
 	_check(in_start == [Items.TORCH], "seed %d: nella stanza d'ingresso solo una torcia a terra (%s)" % [s, in_start])
+
+
+## Su tanti seed e con ogni numero di torce: la stanza d'ingresso ha sempre la sua torcia a terra.
+## (Il builder chiede sempre almeno una torcia: vedi DungeonBuilder.torches_for_floor.)
+func _test_start_torch_always() -> void:
+	var missing := 0
+	for s in range(1, 301):
+		var g := Gen.new()
+		g.generate(s)
+		for torch_count in range(1, 5):
+			g.place_items(torch_count, 1)
+			var in_start := 0
+			for c: Vector2i in g.items:
+				if g.rooms[0].has_point(c) and c != g.start_cell and g.items[c] == Items.TORCH:
+					in_start += 1
+			missing += int(in_start != 1)
+	_check(missing == 0, "300 seed: una torcia nella stanza d'ingresso con 1-4 torce (%d casi senza)" % missing)
 
 
 func _test_start_room(s: int) -> void:

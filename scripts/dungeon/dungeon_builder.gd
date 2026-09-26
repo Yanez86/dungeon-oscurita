@@ -105,9 +105,10 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 
 
 ## Le torce diventano più rare scendendo (GDD: generazione procedurale).
+## Mai meno di una: è quella a terra nella stanza d'ingresso.
 func torches_for_floor(floor_number: int) -> int:
 	var lost := floori(float(floor_number - 1) / maxi(floors_per_torch_lost, 1))
-	return maxi(torches_min, torches_first_floor - lost)
+	return maxi(maxi(torches_min, 1), torches_first_floor - lost)
 
 
 ## Crea un oggetto a terra. Usato dal generatore e quando il giocatore lascia qualcosa.

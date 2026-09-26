@@ -85,14 +85,14 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 func place_items(torch_count: int, flint_count: int) -> void:
 	items.clear()
 	if torch_count > 0:
+		# Scelta tra le celle libere, non a tentativi: la torcia d'ingresso c'è sempre.
 		var start_room := rooms[0]
-		for attempt in 20:
-			var c := Vector2i(
-				_rng.randi_range(start_room.position.x, start_room.end.x - 1),
-				_rng.randi_range(start_room.position.y, start_room.end.y - 1))
-			if c != start_cell:
-				items[c] = Items.TORCH
-				break
+		var free: Array[Vector2i] = []
+		for y in range(start_room.position.y, start_room.end.y):
+			for x in range(start_room.position.x, start_room.end.x):
+				if Vector2i(x, y) != start_cell:
+					free.append(Vector2i(x, y))
+		items[free[_rng.randi_range(0, free.size() - 1)]] = Items.TORCH
 	var to_place: Array[StringName] = []
 	for i in torch_count - items.size():
 		to_place.append(Items.TORCH)
