@@ -14,6 +14,7 @@ func _init() -> void:
 		_test_deterministic(s)
 		for floor_number in [1, 3, 6]:
 			_test_rules(s, floor_number)
+			_test_levers(s, floor_number)
 	_test_counts_and_kinds()
 	_test_boulders_exist()
 	print("Test trappole: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
@@ -24,6 +25,7 @@ func _init() -> void:
 func _layout(s: int, floor_number: int) -> Layout:
 	var g := Gen.new()
 	g.secret_room_count = Vector2i(1, 2)
+	g.gate_count = 1
 	g.generate(s)
 	g.place_items(4, 1)
 	g.place_key()
@@ -35,10 +37,52 @@ func _layout(s: int, floor_number: int) -> Layout:
 	return l
 
 
+## Leve delle trappole: comandano una trappola o una porta a dardi, stanno su un muro a 2-7 passi, su pavimento
+## libero (niente inneschi, fosse, massi, porte accanto), e ci si arriva dall'ingresso senza passare dall'innesco.
+func _test_levers(s: int, floor_number: int) -> void:
+	var l := _layout(s, floor_number)
+	var g := l._gen
+	var ok := true
+	var reach_ok := true
+	for v in l.levers:
+		var target_ok: bool = l.trap_at(v.target) != null or l.door_traps.get(v.target) == Layout.DARTS
+		var dist := g.distances_from(v.target)
+		var d := dist[v.cell.y * g.width + v.cell.x]
+		ok = ok and target_ok and d >= l.lever_distance.x and d <= l.lever_distance.y
+		ok = ok and g.is_floor(v.cell) and not g.is_floor(v.cell + v.wall)
+		ok = ok and l.trap_at(v.cell) == null and not l.pit_cells().has(v.cell) and not g.decorations.has(v.cell)
+		ok = ok and not g.items.has(v.cell) and not g.lever_at(v.cell) and not g.is_secret(v.cell)
+		for side in Gen.SIDES:
+			ok = ok and not g.doors.has(v.cell + side)
+		reach_ok = reach_ok and _reachable_without(g, l, v.target).has(v.cell)
+	_check(ok, "seed %d piano %d: leve su un muro libero, vicine alla loro trappola" % [s, floor_number])
+	_check(reach_ok, "seed %d piano %d: ogni leva si raggiunge senza passare dalla sua trappola" % [s, floor_number])
+
+
+## Dall'ingresso, senza passare da `avoid`, dalle fosse, dagli arredi e dalle porte speciali.
+func _reachable_without(g: Gen, l: Layout, avoid: Vector2i) -> Dictionary:
+	var seen := {g.start_cell: true}
+	var queue: Array[Vector2i] = [g.start_cell]
+	var pits := l.pit_cells()
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in Gen.SIDES:
+			var n := c + d
+			if g.is_floor(n) and not seen.has(n) and n != avoid and not pits.has(n) and not g.decorations.has(n) \
+					and not g.door_kinds.has(n):
+				seen[n] = true
+				queue.append(n)
+	return seen
+
+
 func _describe(l: Layout) -> String:
 	var out := ""
 	for t in l.traps:
 		out += "%s%s%s%s " % [t.kind, t.cell, t.start, t.end]
+	for v in l.levers:
+		out += "leva%s%s%s " % [v.cell, v.wall, v.target]
 	return out + str(l.door_traps) + str(l.ropes)
 
 

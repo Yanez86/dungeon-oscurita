@@ -72,9 +72,9 @@ func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
 	return false
 
 
-## Pavimento libero: niente muro e niente porta chiusa.
+## Pavimento libero: niente muro e niente porta chiusa (tra le sbarre di un cancello si vede).
 func see_through(c: Vector2i) -> bool:
-	return gen.is_floor(c) and not closed_doors.has(c)
+	return gen.is_floor(c) and (not closed_doors.has(c) or gen.door_kinds.get(c) == DungeonGenerator.DOOR_GATE)
 
 
 ## Una porta si è aperta: da ora la vista passa.

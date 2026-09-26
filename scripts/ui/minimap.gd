@@ -14,6 +14,7 @@ extends Control
 @export var exit_color := Color(1.0, 0.75, 0.35, 0.9)
 @export var door_color := Color(0.55, 0.33, 0.16, 0.9)  ## porta chiusa
 @export var golden_door_color := Color(0.95, 0.75, 0.25, 0.95)  ## la porta dorata della scala, chiusa
+@export var gate_color := Color(0.42, 0.42, 0.45, 0.9)  ## cancello abbassato
 @export var player_color := Color(1.0, 0.85, 0.6, 0.95)
 @export var background := Color(0, 0, 0, 0.35)
 
@@ -102,6 +103,8 @@ func _cell_color(c: Vector2i) -> Color:
 				return golden_door_color
 			DungeonGenerator.DOOR_SECRET:
 				return wall_color  # finché è chiuso è un muro come gli altri
+			DungeonGenerator.DOOR_GATE:
+				return gate_color
 		return door_color
 	return floor_color if gen.is_floor(c) else wall_color
 

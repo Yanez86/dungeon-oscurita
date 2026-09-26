@@ -3,7 +3,8 @@ extends Node3D
 ## Base delle trappole sul pavimento: una scena per tipo, le piazza DungeonBuilder dove dice TrapLayout.
 ## Regole comuni (GDD): l'innesco si vede sempre; quando scatta fa un suono breve (Sfx + evento rumore
 ## basso) e l'effetto arriva `warn_time` secondi dopo, così chi reagisce subito si salva.
-## Scattano solo sui giocatori vivi (gruppo "player"). L'origine è al centro della cella, a filo del pavimento.
+## Scattano solo sui giocatori vivi (gruppo "player"). Alcune hanno una leva che le disattiva per sempre (disarm).
+## L'origine è al centro della cella, a filo del pavimento.
 
 ## È scattata.
 signal triggered
@@ -13,11 +14,13 @@ signal triggered
 @export var trigger_sound: StringName = &"trap_click"
 @export var plate_half_size := 0.3        ## metri: si scatta col centro del corpo entro questa distanza dalla piastra
 @export var rearm_time := -1.0            ## secondi dopo l'effetto per tornare armata (< 0: una volta sola)
+@export var disarm_loudness := 0.25       ## il meccanismo che si blocca quando si tira la sua leva
 
 const PLATE_UP := 0.0      ## la piastra sporge di un voxel piccolo dal pavimento...
 const PLATE_DOWN := -0.05  ## ...e premuta scende quasi a filo
 
 var armed := true
+var disarmed := false  ## bloccata da una leva: non scatta più
 
 var _plate: MeshInstance3D  ## piastra a pressione, per le trappole che ne hanno una (add_plate)
 
@@ -97,6 +100,28 @@ func _rearm_later() -> void:
 
 
 func _rearm() -> void:
+	if disarmed:
+		return
 	armed = true
 	if _plate:
 		_plate.position.y = PLATE_UP
+
+
+## La sua leva è stata tirata (vedi Lever): non scatta più. Dal punto dell'innesco si sente un colpo secco,
+## così chi ha tirato la leva capisce quale trappola ha fermato; la piastra resta giù, bloccata.
+func disarm() -> void:
+	if disarmed:
+		return
+	disarmed = true
+	armed = false
+	if _plate:
+		_plate.position.y = PLATE_DOWN
+	var at := _trigger_position()
+	Sfx.play_at(self, &"trap_disarm", at + Vector3.UP * 0.3)
+	NoiseBus.emit_noise(at, disarm_loudness, self)
+	_on_disarm()
+
+
+## Cosa cambia a vista quando la si disattiva (oltre alla piastra).
+func _on_disarm() -> void:
+	pass

@@ -23,9 +23,11 @@ func _init() -> void:
 		_test_exit_niche(s)
 		_test_key(s)
 		_test_secret_rooms(s)
+		_test_gates(s)
 	_test_start_torch_always()
 	_test_exit_niche_always()
 	_test_secret_rooms_often()
+	_test_gates_often()
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -381,6 +383,59 @@ func _test_secret_rooms_often() -> void:
 		g.generate(s)
 		found += int(g.secret_rooms.size() == 1)
 	_check(found >= 190, "200 seed: una stanza segreta quando la si chiede (%d)" % found)
+
+
+## Cancelli a leva: chiudono un vicolo cieco con almeno una stanza (mai la nicchia d'uscita), la leva è
+## raggiungibile coi cancelli chiusi, lontana dal cancello, su un muro di una stanza, fuori dagli arredi.
+## Con key_behind_gate_chance 1 la chiave sta dietro il cancello.
+func _test_gates(s: int) -> void:
+	var g := Gen.new()
+	g.gate_count = 1
+	g.key_behind_gate_chance = 1.0
+	g.generate(s)
+	g.place_items(4, 1)
+	g.place_key()
+	g.place_decorations()
+	var gates := g.door_kinds.keys().filter(func(c: Vector2i) -> bool: return g.door_kinds[c] == Gen.DOOR_GATE)
+	_check(gates.size() == 1 and g.levers.size() == 1, "seed %d: un cancello con la sua leva (%d, %d)" % [s, gates.size(), g.levers.size()])
+	if gates.size() != 1 or g.levers.size() != 1:
+		return
+	var gate: Vector2i = gates[0]
+	var lever := g.levers[0]
+	var shut := _reachable(g, g.door_kinds.keys())
+	var open := _reachable(g, [g.golden_door])
+	var ok := not g.gated.is_empty()
+	for c: Vector2i in g.gated:
+		ok = ok and not shut.has(c) and open.has(c)
+	_check(ok, "seed %d: dietro il cancello si arriva solo alzandolo" % s)
+	_check(not g.gated.has(g.rooms[g.exit_room].get_center()) and not g.gated.has(g.golden_door - g.exit_dir),
+		"seed %d: il cancello non chiude la strada per l'uscita" % s)
+	var dist := g.distances_from(gate)
+	_check(lever.target == gate and shut.has(lever.cell) and not g.gated.has(lever.cell)
+		and dist[lever.cell.y * g.width + lever.cell.x] >= g.lever_min_distance,
+		"seed %d: leva raggiungibile a cancello chiuso e lontana da lui" % s)
+	_check(g.rooms.any(func(r: Rect2i) -> bool: return r.has_point(lever.cell)) and not g.is_floor(lever.cell + lever.wall)
+		and not g.decorations.has(lever.cell) and not g.wall_torches.has(lever.cell),
+		"seed %d: leva su un muro di una stanza, niente arredi né torce davanti" % s)
+	var keys := g.items.keys().filter(func(c: Vector2i) -> bool: return g.items[c] == Items.KEY_GOLD)
+	_check(keys.size() == 1 and g.gated.has(keys[0]), "seed %d: la chiave dietro il cancello" % s)
+	var plain := Gen.new()
+	plain.gate_count = 1
+	plain.generate(s)
+	plain.place_items(4, 1)
+	plain.place_key()
+	keys = plain.items.keys().filter(func(c: Vector2i) -> bool: return plain.items[c] == Items.KEY_GOLD)
+	_check(keys.size() == 1 and not plain.gated.has(keys[0]), "seed %d: di solito la chiave è fuori dal cancello" % s)
+
+
+func _test_gates_often() -> void:
+	var found := 0
+	for s in range(1, 201):
+		var g := Gen.new()
+		g.gate_count = 1
+		g.generate(s)
+		found += int(g.levers.size() == 1)
+	_check(found >= 190, "200 seed: un cancello quando lo si chiede (%d)" % found)
 
 
 ## Celle raggiungibili dall'ingresso senza attraversare `blocked`.

@@ -14,6 +14,7 @@ func _init() -> void:
 	_test_corner_blocks_diagonal()
 	_test_no_light_no_map()
 	_test_closed_door_blocks_sight()
+	_test_gate_lets_sight_through()
 	for s in [1, 42, 1234]:
 		_test_real_floor(s)
 	print("Test mappa esplorata: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
@@ -62,6 +63,23 @@ func _test_corner_blocks_diagonal() -> void:
 
 
 ## Due stanze unite da un corridoio con una porta: chiusa ferma la vista, aperta no.
+## Tra le sbarre di un cancello abbassato si vede.
+func _test_gate_lets_sight_through() -> void:
+	var g := _make([
+		"000000000",
+		"011101110",
+		"011111110",
+		"011101110",
+		"000000000",
+	])
+	var gate := Vector2i(4, 2)
+	g.doors[gate] = true
+	g.door_kinds[gate] = Gen.DOOR_GATE
+	var m := Explored.new(g)
+	m.reveal(Vector2i(2, 2), 8.0)
+	_check(m.is_seen(Vector2i(6, 2)), "oltre il cancello chiuso si vede")
+
+
 func _test_closed_door_blocks_sight() -> void:
 	var g := _make([
 		"000000000",

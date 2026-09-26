@@ -140,3 +140,9 @@ func _shatter() -> void:
 	add_child(rubble)
 	Sfx.play_at(self, &"boulder_crash", _ball.global_position)
 	NoiseBus.emit_noise(_ball.global_position, crash_loudness, self)
+
+
+## Bloccata dalla leva: il filo si allenta e cade a terra, il masso resta nel soffitto.
+func _on_disarm() -> void:
+	_wire.visible = false
+	_wire_cut.visible = true

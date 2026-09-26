@@ -3,7 +3,7 @@ extends Node
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
 ## Salva gallery.png (muri, pavimenti, porte, scala), props.png (arredi, oggetti, tesori, leve e trappole), enemy.png (il Cieco),
 ## room.png (stanza d'ingresso), door.png (una porta), exit_door.png e exit_stairs.png (porta dorata, chiusa e aperta sulla scala),
-## secret.png e secret_open.png (un muro segreto, chiuso e aperto),
+## secret.png e secret_open.png (un muro segreto, chiuso e aperto), lever.png (una leva), gate.png e gate_open.png (un cancello),
 ## decoration.png (un arredo), pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
@@ -48,6 +48,8 @@ func _run() -> void:
 	var dungeon := DungeonBuilder.new()
 	add_child(dungeon)
 	dungeon.secret_rooms_first_floor = Vector2i(1, 1)  # per fotografare un muro segreto
+	dungeon.gates_from_floor = 1  # …e un cancello con la sua leva
+	dungeon.gate_chance = 1.0
 	dungeon.build(_seed, 1)
 	var torch := OmniLight3D.new()
 	torch.omni_range = 12.0
@@ -92,6 +94,25 @@ func _run() -> void:
 			sd.open(cam)
 			await get_tree().create_timer(sd.open_time + 0.3).timeout
 			await _shot("secret_open.png")
+			break
+	for node in get_tree().get_nodes_in_group("lever"):
+		var lever := node as Lever
+		var front := lever.global_basis.z  # verso chi la guarda
+		cam.position = lever.global_position + front * 1.5 + Vector3(0, 1.6, 0)
+		cam.look_at(lever.global_position + Vector3(0, 1.3, 0))
+		await _shot("lever.png")
+		break
+	for node in get_tree().get_nodes_in_group("door"):
+		if node is Gate:
+			# Un cancello abbassato (ci si vede attraverso), poi alzato dalla leva.
+			var gate := node as Gate
+			var axis := gate.global_basis.z
+			cam.position = gate.global_position + axis * 2.6 + Vector3(0, 1.5, 0)
+			cam.look_at(gate.global_position + Vector3(0, 1.1, 0))
+			await _shot("gate.png")
+			gate.set_raised(true)
+			await get_tree().create_timer(gate.raise_time + 0.3).timeout
+			await _shot("gate_open.png")
 			break
 	if not dungeon.gen.decorations.is_empty():
 		# Un arredo visto dal centro della sua cella, un po' indietro.

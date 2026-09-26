@@ -56,6 +56,12 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var traps_max := 8
 @export var door_trap_chance := 0.3     ## probabilità di una porta a dardi o coi campanelli (dal piano 2)
 @export var ropes_per_floor := 1        ## corde a terra, dal piano delle prime botole
+@export var trap_lever_chance := 0.35   ## probabilità che una trappola (o porta a dardi) abbia una leva che la disattiva
+
+@export_group("Cancelli")
+@export var gates_from_floor := 2           ## piano del primo cancello a leva
+@export var gate_chance := 0.7              ## probabilità di un cancello, da quel piano
+@export var key_behind_gate_chance := 0.35  ## probabilità che la chiave d'oro stia dietro il cancello
 
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const BLIND_SCENE := preload("res://scenes/blind.tscn")
@@ -65,8 +71,10 @@ const DOOR_SCENE := preload("res://scenes/door.tscn")
 const SPECIAL_DOOR_SCENES: Dictionary[StringName, PackedScene] = {
 	DungeonGenerator.DOOR_GOLDEN: preload("res://scenes/golden_door.tscn"),
 	DungeonGenerator.DOOR_SECRET: preload("res://scenes/secret_door.tscn"),
+	DungeonGenerator.DOOR_GATE: preload("res://scenes/gate.tscn"),
 }
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
+const LEVER_SCENE := preload("res://scenes/lever.tscn")
 ## Una scena per ogni tipo di trappola sul pavimento (vedi TrapLayout).
 const TRAP_SCENES: Dictionary[StringName, PackedScene] = {
 	TrapLayout.SPIKES: preload("res://scenes/spike_trap.tscn"),
@@ -101,12 +109,16 @@ var traps: TrapLayout  ## dove stanno le trappole del piano
 var _exit_armed := false
 var _floor_models: Dictionary[Vector2i, StringName] = {}    ## pavimenti speciali delle trappole (&"" = nessuno: buco)
 var _ceiling_models: Dictionary[Vector2i, StringName] = {}  ## soffitti speciali (il buco del masso)
+var _doors_by_cell: Dictionary[Vector2i, Door] = {}  ## le porte del piano, per collegarle alle leve
+var _traps_by_cell: Dictionary[Vector2i, Trap] = {}  ## le trappole per cella dell'innesco, idem
 
 
 func build(seed_value: int, floor_number: int = 1) -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
+	_doors_by_cell.clear()
+	_traps_by_cell.clear()
 
 	gen = DungeonGenerator.new(map_size.x, map_size.y)
 	gen.max_corridor = max_corridor
@@ -121,6 +133,9 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.backpack_chance = backpack_first_floor if floor_number == 1 else backpack_chance
 	gen.secret_room_count = secret_rooms_first_floor if floor_number == 1 else secret_rooms_deeper
 	gen.treasures_per_secret_room = treasures_per_secret_room
+	gen.gate_count = 1 if floor_number >= gates_from_floor else 0
+	gen.gate_chance = gate_chance
+	gen.key_behind_gate_chance = key_behind_gate_chance
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 	gen.place_key()
@@ -133,6 +148,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	traps.max_count = traps_max
 	traps.door_trap_chance = door_trap_chance
 	traps.ropes_per_floor = ropes_per_floor
+	traps.lever_chance = trap_lever_chance
 	traps.plan(gen, seed_value, floor_number)
 	_plan_trap_pieces()
 	_floor_models[gen.exit_cell] = &""  # al posto del pavimento c'è la scala
@@ -168,6 +184,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	_add_doors()
 	_add_wall_torches()
 	_add_traps()
+	_add_levers()
 	_add_blinds(seed_value)
 
 
@@ -269,10 +286,10 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 			# Le quattro celle attorno al vertice tra (x-1, y-1) e (x, y).
 			var around: Array[Vector2i] = [Vector2i(x - 1, y - 1), Vector2i(x, y - 1), Vector2i(x - 1, y), Vector2i(x, y)]
 			# Dal lato della stanza, il passaggio di un muro segreto conta come muro: nessun pilastro lo tradisce.
-			var hide := _by_secret_wall(around)
+			var masked := _by_secret_wall(around)
 			var open: Array[bool] = []
 			for c in around:
-				open.append(gen.is_floor(c) and not (hide and gen.door_kinds.get(c) == DungeonGenerator.DOOR_SECRET))
+				open.append(gen.is_floor(c) and not (masked and gen.door_kinds.get(c) == DungeonGenerator.DOOR_SECRET))
 			var floors := open.count(true)
 			var diagonal := floors == 2 and open[0] == open[3]
 			if not (floors == 1 or floors == 3 or diagonal):
@@ -452,6 +469,7 @@ func _add_traps() -> void:
 				boulder.wire = roundi((t.cell - t.start).length())
 				boulder.run = roundi((t.end - t.start).length())
 		add_child(trap)
+		_traps_by_cell[t.cell] = trap
 
 
 ## Da che lato si risale da una fossa: verso una cella di pavimento libera (niente arredi né altre trappole).
@@ -477,6 +495,7 @@ func _add_doors() -> void:
 		elif gen.doors[c]:
 			door.rotation.y = PI / 2.0
 		add_child(door)
+		_doors_by_cell[c] = door
 		door.opened.connect(door_opened.emit.bind(c))
 		door.closed.connect(door_closed.emit.bind(c))
 		door.opened.connect(nav.set_door.bind(c, true))
@@ -492,6 +511,31 @@ func _add_blinds(seed_value: int) -> void:
 		b.position = cell_to_world(gen.enemies[i]) + Vector3.UP * 0.05
 		b.rotation.y = i * 2.4
 		add_child(b)
+
+
+## Le leve murate: quelle dei cancelli (generatore) alzano e riabbassano il loro cancello; quelle delle
+## trappole (TrapLayout) le disattivano una volta per tutte, porte a dardi comprese.
+func _add_levers() -> void:
+	for spot in gen.levers:
+		var gate := _doors_by_cell.get(spot.target) as Gate
+		if gate:
+			_add_lever(spot).pulled.connect(gate.set_raised)
+	for spot in traps.levers:
+		var lever := _add_lever(spot)
+		lever.one_shot = true
+		if _traps_by_cell.has(spot.target):
+			lever.pulled.connect(_traps_by_cell[spot.target].disarm.unbind(1))
+		elif _doors_by_cell.has(spot.target):
+			lever.pulled.connect(_doors_by_cell[spot.target].disarm.unbind(1))
+
+
+## Una leva sulla faccia del muro, rivolta verso la sua cella (come le torce a muro).
+func _add_lever(spot: DungeonGenerator.LeverSpot) -> Lever:
+	var lever: Lever = LEVER_SCENE.instantiate()
+	lever.position = cell_to_world(spot.cell) + Vector3(spot.wall.x, 0, spot.wall.y) * (CELL / 2.0)
+	lever.rotation.y = atan2(float(-spot.wall.x), float(-spot.wall.y))  # +z locale verso la cella
+	add_child(lever)
+	return lever
 
 
 ## Torce appese alla faccia del muro, rivolte verso la stanza.

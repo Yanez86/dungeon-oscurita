@@ -67,6 +67,7 @@ var health: Health
 var journal := Journal.new()  ## diario della partita (lo mostra il menu)
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
 var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
+var nearby_lever: Lever = null    ## leva a portata di mano (per l'HUD)
 var death_cause := ""  ## chi ha tolto l'ultimo punto di energia (per la schermata di morte)
 var in_pit := false    ## caduto in una fossa (botola aperta): si esce solo con una corda (E)
 var pit_rope := false  ## nella fossa c'è già una corda appesa
@@ -239,6 +240,7 @@ func _on_died() -> void:
 	note("Ucciso %s." % by_cause(death_cause) if death_cause != "" else "Sei morto.")
 	nearby_pickup = null
 	nearby_door = null
+	nearby_lever = null
 	if _climb_tween:
 		_climb_tween.kill()  # si ricade giù dalla corda
 	if _death_tween:
@@ -293,6 +295,12 @@ func _physics_process(delta: float) -> void:
 func _handle_items() -> void:
 	nearby_pickup = _find_nearby_pickup()
 	nearby_door = null if nearby_pickup else _find_nearby_door()
+	nearby_lever = null if nearby_pickup else _find_nearby_lever()
+	if nearby_door and nearby_lever:  # la più vicina delle due
+		if _flat_distance(nearby_lever) < _flat_distance(nearby_door):
+			nearby_door = null
+		else:
+			nearby_lever = null
 	if input.select_slot >= 0:
 		inventory.select(input.select_slot)
 	if input.torch_toggle:
@@ -304,6 +312,8 @@ func _handle_items() -> void:
 			_pick_up()
 		elif nearby_door:
 			_use_door(nearby_door)
+		elif nearby_lever:
+			_pull_lever(nearby_lever)
 		elif in_pit:
 			_climb_out()
 		else:
@@ -563,6 +573,39 @@ func _use_door(door: Door) -> void:
 			message.emit("Esci dal vano per chiudere la porta.")
 		else:
 			message.emit("Qualcosa è nel vano: la porta non si chiude.")
+
+
+## E su una leva: la tira (fa rumore). Quelle dei cancelli vanno su e giù, quelle delle trappole restano giù.
+## Il cancello o la trappola sono lontani: il messaggio dice cosa si è sentito.
+func _pull_lever(lever: Lever) -> void:
+	if not lever.pull(self):
+		return
+	if lever.one_shot:
+		message.emit("Un colpo secco, poco lontano: un meccanismo si è bloccato.")
+		note("Tirata una leva: una trappola lì vicino si è bloccata.")
+	else:
+		message.emit("Catene e ferro, da qualche parte: un cancello si muove.")
+		note("Tirata la leva di un cancello.")
+
+
+## La leva più vicina entro `pickup_range`.
+func _find_nearby_lever() -> Lever:
+	var best: Lever = null
+	var best_d := pickup_range
+	for node in get_tree().get_nodes_in_group("lever"):
+		var lever := node as Lever
+		if lever == null or lever.is_queued_for_deletion() or lever.prompt() == "":
+			continue
+		var d := _flat_distance(lever)
+		if d < best_d:
+			best_d = d
+			best = lever
+	return best
+
+
+## Distanza in pianta (senza l'altezza) da un nodo.
+func _flat_distance(node: Node3D) -> float:
+	return Vector2(node.global_position.x - global_position.x, node.global_position.z - global_position.z).length()
 
 
 ## La porta più vicina entro `pickup_range`, aperta o chiusa.

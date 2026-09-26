@@ -10,6 +10,13 @@ const SIDES: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vect
 ## Porte speciali (vedi door_kinds); le altre sono porte di legno.
 const DOOR_GOLDEN := &"golden"  ## chiude la nicchia della scala: si apre solo con la chiave d'oro
 const DOOR_SECRET := &"secret"  ## muro segreto: sembra un muro della stanza; dietro, una stanzetta coi tesori
+const DOOR_GATE := &"gate"      ## cancello di sbarre: non si apre a mano, lo alza una leva altrove nel piano
+
+## Una leva murata: la cella di pavimento davanti al muro, da che lato è il muro e la cella di ciò che comanda.
+class LeverSpot:
+	var cell: Vector2i
+	var wall: Vector2i
+	var target: Vector2i
 
 var width: int
 var height: int
@@ -24,6 +31,8 @@ var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi I
 var doors: Dictionary[Vector2i, bool] = {}  ## ogni passaggio che si chiude: cella -> true se va lungo x (est-ovest)
 var door_kinds: Dictionary[Vector2i, StringName] = {}  ## cella di una porta speciale -> DOOR_*; assente = porta di legno
 var secret_rooms: Array[Rect2i] = []  ## stanzette dietro un muro segreto (non sono in `rooms`: niente nemici, arredi, trappole)
+var levers: Array[LeverSpot] = []  ## leve dei cancelli (quelle delle trappole le decide TrapLayout)
+var gated: Dictionary[Vector2i, bool] = {}  ## celle chiuse dietro un cancello: la sua leva è sempre fuori
 var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
 var decorations: Dictionary[Vector2i, StringName] = {}  ## cella -> tipo d'arredo (vedi DECORATION_KINDS)
 var enemies: Array[Vector2i] = []  ## celle dove nascono i nemici (per ora tutti Ciechi)
@@ -49,6 +58,11 @@ var secret_room_size := Vector2i(2, 3)   ## lato minimo e massimo di una stanza 
 var treasures_per_secret_room := Vector2i(1, 3)
 ## Quanto spesso esce ogni tesoro, rispetto agli altri.
 var treasure_weights: Dictionary[StringName, float] = {Items.COINS: 5.0, Items.GEM: 3.0, Items.CHALICE: 1.0}
+var gate_count := 0              ## cancelli a leva
+var gate_chance := 1.0           ## probabilità di ogni cancello
+var lever_min_distance := 8      ## passi minimi tra un cancello e la sua leva
+var gate_max_share := 0.3       ## al massimo questa parte del piano dietro un cancello: è un vicolo cieco
+var key_behind_gate_chance := 0.0  ## probabilità che la chiave d'oro stia dietro un cancello (se c'è)
 
 var _rng := RandomNumberGenerator.new()
 
@@ -67,6 +81,8 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	doors.clear()
 	door_kinds.clear()
 	secret_rooms.clear()
+	levers.clear()
+	gated.clear()
 	wall_torches.clear()
 	decorations.clear()
 	enemies.clear()
@@ -97,6 +113,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	start_cell = rooms[0].get_center()
 	_carve_exit()
 	_carve_secret_rooms()
+	_place_gates()
 	_place_doors()
 	_place_start_torches()
 	_place_wall_torches()
@@ -152,16 +169,21 @@ func _place_in_rooms(id: StringName) -> void:
 ## La chiave d'oro che apre la porta dell'uscita: una per piano, in una stanza lontana sia dall'ingresso
 ## sia dalla porta dorata (una a caso tra le `key_room_choices` migliori): il piano va attraversato due volte.
 ## Mai nella stanza d'ingresso né in quella della nicchia. Va chiamata dopo place_items(): evita gli oggetti
-## e continua lo stesso generatore casuale.
+## e continua lo stesso generatore casuale. Mai dietro un cancello, tranne quando lo vuole `key_behind_gate_chance`.
 func place_key() -> void:
 	if golden_door.x < 0 or rooms.size() < 2:
 		return
 	var from_start := distances_from(start_cell)
 	var from_exit := distances_from(golden_door)
+	# Dietro un cancello solo a volte (`key_behind_gate_chance`): la leva è sempre raggiungibile.
+	var behind := not gated.is_empty() and _rng.randf() < key_behind_gate_chance
 	var candidates: Array[int] = []
-	for i in range(1, rooms.size()):
-		if i != exit_room or rooms.size() == 2:
-			candidates.append(i)
+	for pass_behind: bool in [behind, not behind]:  # se da una parte non c'è posto, dall'altra
+		for i in range(1, rooms.size()):
+			if (i != exit_room or rooms.size() == 2) and gated.has(rooms[i].get_center()) == pass_behind:
+				candidates.append(i)
+		if not candidates.is_empty():
+			break
 	var score := func(i: int) -> int:
 		var c := rooms[i].get_center()
 		return mini(_cell_distance(from_start, c), _cell_distance(from_exit, c))
@@ -267,7 +289,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 
 
 ## Mappa in testo: # muro, . pavimento, S ingresso, E uscita (la scala), C Cieco, T torcia, A acciarino, U scudo, X tagliola,
-## Z zaino, K chiave d'oro, $ tesoro, G porta dorata, H muro segreto,
+## Z zaino, K chiave d'oro, $ tesoro, G porta dorata, H muro segreto, I cancello, Y leva (di un cancello),
 ## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
@@ -286,6 +308,8 @@ func to_ascii() -> String:
 			elif Items.VALUES.has(items.get(c, &"")): out += "$"
 			elif door_kinds.get(c) == DOOR_GOLDEN: out += "G"
 			elif door_kinds.get(c) == DOOR_SECRET: out += "H"
+			elif door_kinds.get(c) == DOOR_GATE: out += "I"
+			elif lever_at(c): out += "Y"
 			elif doors.has(c): out += "D"
 			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."
@@ -330,22 +354,119 @@ func _place_doors() -> void:
 	for y in range(1, height - 1):
 		for x in range(1, width - 1):
 			var c := Vector2i(x, y)
-			if not is_floor(c) or _in_any_room(c) or doors.has(c):
-				continue  # le porte speciali (la dorata) sono già al loro posto
-			var along_x := is_floor(c + Vector2i.LEFT) and is_floor(c + Vector2i.RIGHT) \
-				and not is_floor(c + Vector2i.UP) and not is_floor(c + Vector2i.DOWN)
-			var along_y := is_floor(c + Vector2i.UP) and is_floor(c + Vector2i.DOWN) \
-				and not is_floor(c + Vector2i.LEFT) and not is_floor(c + Vector2i.RIGHT)
-			if not (along_x or along_y):
-				continue
-			var a := c + (Vector2i.LEFT if along_x else Vector2i.UP)
-			var b := c + (Vector2i.RIGHT if along_x else Vector2i.DOWN)
-			if not (_in_any_room(a) or _in_any_room(b)):
-				continue  # solo all'ingresso di una stanza
-			if doors.has(a) or doors.has(b):
+			if doors.has(c):
+				continue  # le porte speciali (dorata, segrete, cancelli) sono già al loro posto
+			var step := _room_mouth(c)
+			if step == Vector2i.ZERO or doors.has(c - step) or doors.has(c + step):
 				continue
 			if _rng.randf() < door_chance:
-				doors[c] = along_x
+				doors[c] = step.x != 0
+
+
+## Se `c` è una strozzatura di corridoio all'ingresso di una stanza (muro ai due lati, pavimento davanti
+## e dietro, una stanza da una parte), il verso del passaggio (RIGHT o DOWN); altrimenti ZERO.
+func _room_mouth(c: Vector2i) -> Vector2i:
+	if not is_floor(c) or _in_any_room(c):
+		return Vector2i.ZERO
+	for step: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+		var side := Vector2i(step.y, step.x)
+		if is_floor(c + step) and is_floor(c - step) and not is_floor(c + side) and not is_floor(c - side):
+			return step if _in_any_room(c + step) or _in_any_room(c - step) else Vector2i.ZERO
+	return Vector2i.ZERO
+
+
+## Cancelli a leva (`gate_count`): nella strozzatura all'ingresso di una stanza che, chiusa, isola una parte del
+## piano (un vicolo cieco con almeno una stanza, mai quella della nicchia d'uscita). La leva sta su un muro di
+## un'altra stanza, raggiungibile coi cancelli chiusi, ad almeno `lever_min_distance` passi dal cancello.
+## Prima delle porte di legno: dove c'è un cancello non ce ne sono.
+func _place_gates() -> void:
+	for n in gate_count:
+		if _rng.randf() >= gate_chance:
+			continue
+		var shut := _special_doors()
+		var open := _reach(shut)
+		var options: Array[Vector2i] = []
+		var regions: Array[Dictionary] = []
+		for y in range(1, height - 1):
+			for x in range(1, width - 1):
+				var c := Vector2i(x, y)
+				if not open.has(c) or _room_mouth(c) == Vector2i.ZERO:
+					continue
+				var trial := shut.duplicate()
+				trial[c] = true
+				var cut := _reach(trial)
+				var region: Dictionary[Vector2i, bool] = {}
+				for o: Vector2i in open:
+					if o != c and not cut.has(o):
+						region[o] = true
+				if region.size() <= open.size() * gate_max_share and _good_gate_region(region):
+					options.append(c)
+					regions.append(region)
+		if options.is_empty():
+			return
+		var pick := _rng.randi_range(0, options.size() - 1)
+		var gate := options[pick]
+		var closed := shut.duplicate()
+		closed[gate] = true
+		var reach := _reach(closed)
+		var from_gate := distances_from(gate)
+		var spots: Array[Vector2i] = []
+		for i in range(1, rooms.size()):
+			for c in _decoration_spots(rooms[i]):
+				if reach.has(c) and _cell_distance(from_gate, c) >= lever_min_distance and not lever_at(c):
+					spots.append(c)
+		if spots.is_empty():
+			continue
+		doors[gate] = _room_mouth(gate).x != 0
+		door_kinds[gate] = DOOR_GATE
+		gated.merge(regions[pick])
+		var lever := LeverSpot.new()
+		lever.cell = spots[_rng.randi_range(0, spots.size() - 1)]
+		var walls := SIDES.filter(func(d: Vector2i) -> bool: return not is_floor(lever.cell + d))
+		lever.wall = walls[_rng.randi_range(0, walls.size() - 1)]
+		lever.target = gate
+		levers.append(lever)
+
+
+## Dietro un cancello: almeno una stanza intera, niente stanza d'ingresso né quella della nicchia d'uscita.
+func _good_gate_region(region: Dictionary[Vector2i, bool]) -> bool:
+	if region.is_empty() or region.has(rooms[0].get_center()):
+		return false
+	if exit_room >= 0 and region.has(rooms[exit_room].get_center()):
+		return false
+	for i in range(1, rooms.size()):
+		if region.has(rooms[i].get_center()):
+			return true
+	return false
+
+
+## Le porte che non si aprono liberamente: dorata, muri segreti, cancelli.
+func _special_doors() -> Dictionary[Vector2i, bool]:
+	var out: Dictionary[Vector2i, bool] = {}
+	for c in door_kinds:
+		out[c] = true
+	return out
+
+
+## Le celle raggiungibili dall'ingresso senza attraversare `blocked`.
+func _reach(blocked: Dictionary[Vector2i, bool]) -> Dictionary[Vector2i, bool]:
+	var seen: Dictionary[Vector2i, bool] = {start_cell: true}
+	var queue: Array[Vector2i] = [start_cell]
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in SIDES:
+			var n := c + d
+			if is_floor(n) and not seen.has(n) and not blocked.has(n):
+				seen[n] = true
+				queue.append(n)
+	return seen
+
+
+## Vero se su un muro davanti a `c` c'è la leva di un cancello.
+func lever_at(c: Vector2i) -> bool:
+	return levers.any(func(l: LeverSpot) -> bool: return l.cell == c)
 
 
 ## La stanza d'ingresso è sempre illuminata: torce a muro su lati diversi, se possibile.
@@ -384,7 +505,7 @@ func _try_wall_torch(room: Rect2i, dir: Vector2i) -> bool:
 	elif dir == Vector2i.RIGHT: c.x = room.end.x - 1
 	elif dir == Vector2i.UP: c.y = room.position.y
 	else: c.y = room.end.y - 1
-	if is_floor(c + dir) or wall_torches.has(c):
+	if is_floor(c + dir) or wall_torches.has(c) or lever_at(c):
 		return false
 	wall_torches[c] = dir
 	return true
@@ -397,7 +518,7 @@ func _decoration_spots(room: Rect2i) -> Array[Vector2i]:
 	for y in range(room.position.y, room.end.y):
 		for x in range(room.position.x, room.end.x):
 			var c := Vector2i(x, y)
-			if c == exit_cell or items.has(c) or wall_torches.has(c):
+			if c == exit_cell or items.has(c) or wall_torches.has(c) or lever_at(c):
 				continue
 			var against_wall := false
 			var near_entrance := _is_entrance(c, room)

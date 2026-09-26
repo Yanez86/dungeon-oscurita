@@ -183,6 +183,16 @@ func _unlock(_opener: Node3D) -> bool:
 	return true
 
 
+## La leva della porta a dardi è stata tirata: il meccanismo si blocca con un colpo secco (si sente da dove
+## viene) e i dardi non partono più.
+func disarm() -> void:
+	if not _darts_armed:
+		return
+	_darts_armed = false
+	Sfx.play_at(self, &"trap_disarm", global_position + Vector3.UP * dart_height)
+	NoiseBus.emit_noise(global_position, 0.25, self)
+
+
 ## Ruota il pannello (un Tween anima una proprietà nel tempo); un nuovo movimento interrompe il precedente.
 ## `delay`: secondi di attesa prima di muoversi (la porta a dardi fa resistenza).
 func _swing_to(angle: float, delay := 0.0) -> void:

@@ -28,6 +28,7 @@ class Spot:
 var traps: Array[Spot] = []
 var door_traps: Dictionary[Vector2i, StringName] = {}  ## cella della porta -> DARTS o BELLS
 var ropes: Array[Vector2i] = []  ## corde a terra: senza, dalle fosse non si esce
+var levers: Array[DungeonGenerator.LeverSpot] = []  ## leve murate che disattivano una trappola (anche le porte a dardi)
 
 ## Parametri: il builder li imposta dai suoi @export prima di plan().
 var first_floor_count := 2   ## trappole sul pavimento al piano 1
@@ -44,6 +45,9 @@ var ropes_per_floor := 1
 var start_margin := 2         ## celle senza trappole attorno alla stanza d'ingresso
 var boulder_min_run := 6      ## celle minime del percorso del masso
 var boulder_wire_distance := Vector2i(2, 6)  ## celle tra il punto di caduta del masso e il filo
+var lever_chance := 0.35           ## probabilità che una trappola abbia la sua leva
+var lever_min_floor := 1
+var lever_distance := Vector2i(2, 7)  ## passi tra la trappola e la sua leva (min, max)
 
 var _gen: DungeonGenerator
 var _rng := RandomNumberGenerator.new()
@@ -59,6 +63,7 @@ func plan(gen: DungeonGenerator, seed_value: int, floor_number: int) -> void:
 	traps.clear()
 	door_traps.clear()
 	ropes.clear()
+	levers.clear()
 	_trap_cells.clear()
 	_reserved.clear()
 	_pits.clear()
@@ -82,6 +87,9 @@ func plan(gen: DungeonGenerator, seed_value: int, floor_number: int) -> void:
 	if floor_number >= ropes_min_floor:
 		_place_ropes()
 
+	if floor_number >= lever_min_floor:
+		_place_levers()
+
 
 ## Quante trappole sul pavimento: crescono scendendo, fino a max_count.
 func count_for_floor(floor_number: int) -> int:
@@ -104,7 +112,7 @@ func pit_cells() -> Array[Vector2i]:
 
 
 ## La mappa del generatore con le trappole (la stampa main.gd a ogni piano): f frecce, b botola, o masso (dove cade), w filo,
-## v soffio, g gabbia, x porta a dardi, q porta coi campanelli, r corda.
+## v soffio, g gabbia, x porta a dardi, q porta coi campanelli, r corda, y leva di una trappola.
 func to_ascii() -> String:
 	var lines := _gen.to_ascii().split("\n")
 	var marks: Dictionary[Vector2i, String] = {}
@@ -121,6 +129,8 @@ func to_ascii() -> String:
 		marks[c] = "x" if door_traps[c] == DARTS else "q"
 	for c in ropes:
 		marks[c] = "r"
+	for l in levers:
+		marks[l.cell] = "y"
 	for c in marks:
 		var line := lines[c.y]
 		lines[c.y] = line.substr(0, c.x) + marks[c] + line.substr(c.x + 1)
@@ -246,6 +256,73 @@ func _boulder_wires(t: Spot) -> Array[Vector2i]:
 	return out
 
 
+## Leve delle trappole: alcune trappole (`lever_chance`, porte a dardi comprese) hanno una leva su un muro a
+## `lever_distance` passi, raggiungibile senza passare dall'innesco e prima di arrivarci, venendo dall'ingresso.
+## Tirarla la disattiva per sempre (vedi Trap.disarm).
+func _place_levers() -> void:
+	var targets: Array[Vector2i] = []
+	for t in traps:
+		targets.append(t.cell)
+	for c in door_traps:
+		if door_traps[c] == DARTS:
+			targets.append(c)
+	var from_start := _gen.distances_from(_gen.start_cell)
+	for target in targets:
+		if _rng.randf() >= lever_chance:
+			continue
+		var reach := _reach_avoiding(target)
+		var near := _gen.distances_from(target)
+		var spots: Array[Vector2i] = []
+		for y in _gen.height:
+			for x in _gen.width:
+				var c := Vector2i(x, y)
+				var i := y * _gen.width + x
+				if near[i] < lever_distance.x or near[i] > lever_distance.y or from_start[i] > from_start[target.y * _gen.width + target.x]:
+					continue
+				if reach.has(c) and _lever_spot(c):
+					spots.append(c)
+		if spots.is_empty():
+			continue
+		var lever := DungeonGenerator.LeverSpot.new()
+		lever.cell = spots[_rng.randi_range(0, spots.size() - 1)]
+		var walls := DungeonGenerator.SIDES.filter(func(d: Vector2i) -> bool: return not _gen.is_floor(lever.cell + d))
+		lever.wall = walls[_rng.randi_range(0, walls.size() - 1)]
+		lever.target = target
+		levers.append(lever)
+
+
+## Dove si può murare una leva: pavimento libero con un muro accanto, lontano da porte, inneschi, fosse,
+## percorsi dei massi, torce a muro e altre leve.
+func _lever_spot(c: Vector2i) -> bool:
+	if not _free_spot(c) or _near_start(c) or _trap_cells.has(c) or _pits.has(c) or _reserved.has(c):
+		return false
+	if _gen.wall_torches.has(c) or levers.any(func(l: DungeonGenerator.LeverSpot) -> bool: return l.cell == c):
+		return false
+	var wall := false
+	for d in DungeonGenerator.SIDES:
+		if _gen.doors.has(c + d):
+			return false  # la cornice di una porta non è un muro dove murarla
+		wall = wall or not _gen.is_floor(c + d)
+	return wall
+
+
+## Le celle raggiungibili dall'ingresso senza passare da `avoid`, dalle fosse, dagli arredi e dalle porte
+## speciali (dorata, muri segreti, cancelli): quelle che non si aprono da sole.
+func _reach_avoiding(avoid: Vector2i) -> Dictionary[Vector2i, bool]:
+	var seen: Dictionary[Vector2i, bool] = {_gen.start_cell: true}
+	var queue: Array[Vector2i] = [_gen.start_cell]
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in DungeonGenerator.SIDES:
+			var n := c + d
+			if _gen.is_floor(n) and not seen.has(n) and n != avoid and not _blocked(n) and not _gen.door_kinds.has(n):
+				seen[n] = true
+				queue.append(n)
+	return seen
+
+
 ## Corde a terra nelle stanze (mai in quella d'ingresso), su celle libere.
 func _place_ropes() -> void:
 	if _gen.rooms.size() < 2:
@@ -292,11 +369,11 @@ func _usable(c: Vector2i) -> bool:
 	return true
 
 
-## Pavimento senza oggetti, arredi, porte, uscita e ingresso, fuori dalle stanze segrete.
+## Pavimento senza oggetti, arredi, porte, uscita e ingresso, fuori dalle stanze segrete e senza la leva di un cancello.
 func _free_spot(c: Vector2i) -> bool:
 	return _gen.is_floor(c) and c != _gen.exit_cell and c != _gen.start_cell \
 		and not _gen.items.has(c) and not _gen.decorations.has(c) and not _gen.doors.has(c) \
-		and not _gen.is_secret(c)
+		and not _gen.is_secret(c) and not _gen.lever_at(c)
 
 
 func _near_start(c: Vector2i) -> bool:
