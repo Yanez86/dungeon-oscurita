@@ -1,5 +1,5 @@
 extends Node3D
-## Avvia la partita, genera i piani e gestisce il passaggio da un piano all'altro.
+## Avvia la partita, genera i piani e gestisce il passaggio da un piano all'altro e la morte.
 
 @export var fixed_seed := 0  ## 0 = casuale. Impostalo per riprodurre il piano di una segnalazione.
 
@@ -14,6 +14,7 @@ func _ready() -> void:
 	player.torch_dropped.connect(dungeon.spawn_ground_torch)
 	dungeon.door_opened.connect(hud.minimap.open_door)
 	dungeon.door_closed.connect(hud.minimap.close_door)
+	player.health.died.connect(_on_player_died)
 	hud.player = player
 	start_run(fixed_seed if fixed_seed != 0 else randi() % 1000000)
 
@@ -22,8 +23,16 @@ func start_run(run_seed: int) -> void:
 	Game.run_seed = run_seed
 	Game.floor_number = 1
 	Game.run_time = 0.0
+	Game.run_over = false
+	hud.death_screen.disappear()
 	player.reset_for_run()
 	_load_floor()
+
+
+## Energia a zero: la partita finisce (niente rianimazione per ora, GDD). R ne avvia una nuova.
+func _on_player_died() -> void:
+	Game.run_over = true
+	hud.death_screen.appear(player.death_cause)
 
 
 ## L'inventario e la torcia restano quelli del piano precedente.

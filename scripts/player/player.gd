@@ -17,6 +17,8 @@ extends CharacterBody3D
 
 @export_group("Energia")
 @export var max_health := 10  ## pochi punti: il combattimento è raro e letale (GDD)
+@export var death_fall_time := 0.8  ## secondi in cui la vista crolla a terra quando si muore
+@export var death_head_height := 0.3  ## altezza della vista da morti (metri)
 
 @export_group("Oggetti")
 @export var inventory_slots := 5
@@ -48,15 +50,18 @@ var health: Health
 var journal := Journal.new()  ## diario della partita (lo mostra il menu)
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
 var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
+var death_cause := ""  ## chi ha tolto l'ultimo punto di energia (per la schermata di morte)
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _step_progress := 0.0
+var _death_tween: Tween
 
 
 func _ready() -> void:
 	add_to_group("player")
 	inventory = Inventory.new(inventory_slots)
 	health = Health.new(max_health)
+	health.died.connect(_on_died)
 	torch.burned_out.connect(_on_torch_burned_out)
 	reset_for_run()
 
@@ -64,6 +69,11 @@ func _ready() -> void:
 ## Inizio partita: energia piena, diario vuoto, mani vuote e inventario iniziale;
 ## la prima torcia è a terra nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
 func reset_for_run() -> void:
+	if _death_tween:
+		_death_tween.kill()
+	head.position.y = HEAD_STAND
+	head.rotation.z = 0.0
+	death_cause = ""
 	health.reset()
 	journal.clear()
 	inventory.clear()
@@ -83,8 +93,28 @@ func _on_torch_burned_out() -> void:
 	note("La torcia si è consumata.")
 
 
+## Energia a zero: la vista crolla di lato fino a terra. La schermata di fine la mostra main.gd.
+func _on_died() -> void:
+	note("Ucciso da %s." % death_cause if death_cause != "" else "Sei morto.")
+	nearby_pickup = null
+	nearby_door = null
+	if _death_tween:
+		_death_tween.kill()
+	_death_tween = create_tween().set_parallel().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_death_tween.tween_property(head, "position:y", death_head_height, death_fall_time)
+	_death_tween.tween_property(head, "rotation:z", 1.3, death_fall_time)
+
+
 func _physics_process(delta: float) -> void:
 	input.sample()
+	if health.is_dead():
+		input.consume_look()  # da morti non ci si guarda intorno
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= _gravity * delta
+		move_and_slide()
+		return
 
 	var look := input.consume_look()
 	rotate_y(-look.x)

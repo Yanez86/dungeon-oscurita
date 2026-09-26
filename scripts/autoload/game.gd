@@ -7,6 +7,7 @@ var version: String = ProjectSettings.get_setting("application/config/version", 
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)
 var floor_number: int = 1  ## piano corrente
 var run_time := 0.0        ## secondi passati nel dungeon in questa partita (scheda del giocatore)
+var run_over := false      ## il giocatore è morto: il tempo si ferma finché non parte una nuova partita
 
 
 func _ready() -> void:
@@ -14,7 +15,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	run_time += delta  # anche col menu aperto: il gioco non si ferma
+	if not run_over:
+		run_time += delta  # anche col menu aperto: il gioco non si ferma
 
 
 ## Seed del piano corrente: stesso seed partita + stesso piano = stesso dungeon.
