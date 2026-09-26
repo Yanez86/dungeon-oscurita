@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Versione e seed sempre visibili (per le segnalazioni dei tester).
-## F3: dettagli di debug.
+## F3: dettagli di debug. F6/F7 (solo build di debug): -1/+1 energia, per provare la barra.
 
 var _corner := Label.new()
 var _details := Label.new()
@@ -13,7 +13,7 @@ func _ready() -> void:
 	_corner.modulate = Color(1, 1, 1, 0.6)
 	add_child(_corner)
 
-	_details.position = Vector2(8, 110)  # sotto il riquadro della torcia
+	_details.position = Vector2(16, 180)  # sotto energia e riquadro della torcia
 	_details.visible = false
 	add_child(_details)
 
@@ -21,6 +21,10 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("debug_toggle"):
 		_details.visible = not _details.visible
+	elif OS.is_debug_build() and event.is_action_pressed("debug_hurt"):
+		_change_health(-1)
+	elif OS.is_debug_build() and event.is_action_pressed("debug_heal"):
+		_change_health(1)
 
 
 func _process(_delta: float) -> void:
@@ -41,4 +45,17 @@ func _process(_delta: float) -> void:
 	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa")
 	lines.append("E raccogli · 1-5 scegli slot · G lascia a terra")
 	lines.append("R nuova partita · Esc libera il mouse")
+	lines.append("F6 / F7  -1 / +1 energia (debug)")
 	_details.text = "\n".join(lines)
+
+
+## Finché non ci sono nemici: toglie o ridà energia al giocatore per provare la barra.
+func _change_health(amount: int) -> void:
+	var player := get_tree().get_first_node_in_group("player")
+	var health: Health = player.get("health") as Health if player else null
+	if health == null:
+		return
+	if amount < 0:
+		health.damage(-amount)
+	else:
+		health.heal(amount)

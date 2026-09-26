@@ -2,19 +2,23 @@ class_name Hud
 extends CanvasLayer
 ## Interfaccia minima (GDD): nessuna barra della torcia, solo gli slot
 ## dell'inventario in basso (icone in miniatura degli oggetti, poco visibili),
-## brevi messaggi che svaniscono e, a sinistra, un riquadro vago sulla torcia accesa (vedi torch_buff.gd).
+## brevi messaggi che svaniscono e, in alto a sinistra, la barra dell'energia
+## con sotto un riquadro vago sulla torcia accesa (vedi torch_buff.gd).
 ## Un CanvasLayer disegna i suoi nodi sopra la scena 3D.
 
 @export var message_time := 2.5  ## secondi prima che un messaggio sparisca
 @export var slot_alpha := 0.45     ## slot non selezionati: si vedono appena
+@export var margin := 16           ## distanza dai bordi dello schermo
 
 var player: Player:
 	set = _set_player
 
 var minimap := Minimap.new()
+var health_bar := HealthBar.new()
 var torch_buff := TorchBuff.new()
 var icons := ItemIcons.new()  ## icone degli oggetti, condivise con il menu
 
+var _status := VBoxContainer.new()  ## colonna in alto a sinistra: energia, poi torcia
 var _slots := HBoxContainer.new()
 var _prompt := Label.new()
 var _message := Label.new()
@@ -22,7 +26,7 @@ var _message_left := 0.0
 
 
 func _ready() -> void:
-	_slots.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 16)
+	_slots.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, margin)
 	_slots.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_slots.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_slots.add_theme_constant_override("separation", 6)
@@ -42,14 +46,23 @@ func _ready() -> void:
 	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_message)
 
+	# In un VBoxContainer i riquadri si impilano e prendono la stessa larghezza;
+	# quello della torcia, quando è nascosto, non occupa posto.
+	_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, margin)
+	_status.add_theme_constant_override("separation", 8)
+	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_status)
+	_status.add_child(health_bar)
+	_status.add_child(torch_buff)
+
 	add_child(minimap)
-	add_child(torch_buff)
 	add_child(icons)
 
 
 func _set_player(p: Player) -> void:
 	player = p
 	minimap.player = p
+	health_bar.health = p.health
 	torch_buff.torch = p.torch
 	player.message.connect(_show_message)
 	player.inventory.changed.connect(_refresh_slots)

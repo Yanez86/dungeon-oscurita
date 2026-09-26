@@ -34,6 +34,8 @@ func _setup_input() -> void:
 	_bind("new_run", [KEY_R])
 	_bind("debug_toggle", [KEY_F3])
 	_bind("psx_toggle", [KEY_F4])
+	_bind("debug_hurt", [KEY_F6])
+	_bind("debug_heal", [KEY_F7])
 
 
 func _bind(action: StringName, keys: Array) -> void:

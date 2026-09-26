@@ -14,6 +14,9 @@ extends CharacterBody3D
 @export var walk_loudness := 0.3
 @export var sprint_loudness := 0.6
 
+@export_group("Energia")
+@export var max_health := 10  ## pochi punti: il combattimento è raro e letale (GDD)
+
 @export_group("Oggetti")
 @export var inventory_slots := 5
 @export var start_items: Array[StringName] = [Items.FLINT]
@@ -40,6 +43,7 @@ const HEAD_CROUCH := 1.0
 @onready var torch: Torch = $Head/Torch
 
 var inventory: Inventory
+var health: Health
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
 var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
 
@@ -50,13 +54,15 @@ var _step_progress := 0.0
 func _ready() -> void:
 	add_to_group("player")
 	inventory = Inventory.new(inventory_slots)
+	health = Health.new(max_health)
 	torch.burned_out.connect(func() -> void: message.emit("La torcia si è consumata."))
 	reset_for_run()
 
 
-## Inizio partita: mani vuote e inventario iniziale; la prima torcia è a terra
+## Inizio partita: energia piena, mani vuote e inventario iniziale; la prima torcia è a terra
 ## nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
 func reset_for_run() -> void:
+	health.reset()
 	inventory.clear()
 	for id in start_items:
 		inventory.add(id)

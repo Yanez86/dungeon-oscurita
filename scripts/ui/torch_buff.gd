@@ -1,11 +1,10 @@
 class_name TorchBuff
 extends PanelContainer
-## Riquadro "buff" a sinistra, con lo stesso stile della minimappa: compare solo
-## con la torcia accesa e dice a occhio quanto durerà (niente numeri, GDD).
+## Riquadro "buff" a sinistra, sotto la barra dell'energia (li impila hud.gd), con lo stesso
+## stile della minimappa: compare solo con la torcia accesa e dice a occhio quanto durerà (niente numeri, GDD).
 ## Il tempo esatto si vede solo nelle build di debug, per i test.
 ## PanelContainer: un contenitore che disegna uno sfondo (StyleBox) dietro ai figli.
 
-@export var margin := 16
 @export var background := Color(0, 0, 0, 0.35)       ## come la minimappa
 @export var title_color := Color(1.0, 0.85, 0.6, 0.95)
 @export var state_color := Color(0.62, 0.55, 0.45, 0.9)
@@ -27,7 +26,6 @@ func _ready() -> void:
 	style.bg_color = background
 	style.set_content_margin_all(8)
 	add_theme_stylebox_override("panel", style)
-	set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, margin)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 0)

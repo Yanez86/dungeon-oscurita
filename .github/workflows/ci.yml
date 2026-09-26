@@ -39,6 +39,9 @@ jobs:
       - name: Test della torcia a terra
         run: ./godot --headless -s res://tests/test_ground_torch.gd
 
+      - name: Test dell'energia
+        run: ./godot --headless -s res://tests/test_health.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log
