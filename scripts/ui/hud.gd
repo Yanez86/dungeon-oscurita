@@ -80,11 +80,6 @@ func _set_player(p: Player) -> void:
 	player.message.connect(_show_message)
 	player.hurt_taken.connect(_on_hurt)
 	player.inventory.changed.connect(_refresh_slots)
-	for i in player.inventory.capacity():
-		var slot := ItemSlot.new()
-		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_slots.add_child(slot)
-		slot.set_number(i + 1)
 	_refresh_slots()
 
 
@@ -118,8 +113,18 @@ func _show_message(text: String) -> void:
 
 
 ## Un'icona per slot; quello selezionato ha il bordo acceso ed è più visibile.
+## Gli slot seguono la capienza: lo zaino ne aggiunge, una nuova partita li riporta a 5.
 func _refresh_slots() -> void:
 	var inv := player.inventory
+	while _slots.get_child_count() < inv.capacity():
+		var slot := ItemSlot.new()
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_slots.add_child(slot)
+		slot.set_number(_slots.get_child_count())
+	while _slots.get_child_count() > inv.capacity():
+		var last := _slots.get_child(_slots.get_child_count() - 1)
+		_slots.remove_child(last)
+		last.queue_free()
 	for i in inv.capacity():
 		var slot := _slots.get_child(i) as ItemSlot
 		slot.show_item(icons.icon(inv.slots[i]), i == inv.selected)

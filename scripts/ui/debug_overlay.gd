@@ -47,7 +47,7 @@ func _process(_delta: float) -> void:
 	lines.append("")
 	lines.append("WASD muovi · Shift corri · Ctrl accovacciati")
 	lines.append("F spegni la torcia in mano · Q usa l'oggetto selezionato: acciarino accende, torcia accesa la butta a terra, tagliola la posa")
-	lines.append("E raccogli · 1-5 scegli slot · G lascia a terra")
+	lines.append("E raccogli · 1-8 scegli slot · G lascia a terra")
 	lines.append("Tab scheda · I inventario · J diario · Esc impostazioni · R nuova partita")
 	lines.append("F6 / F7  -1 / +1 energia (debug)")
 	_details.text = "\n".join(lines)

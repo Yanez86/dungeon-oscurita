@@ -33,6 +33,7 @@ var decorations_per_room := Vector2i(0, 3)  ## arredi per stanza (min, max), esc
 var enemy_min_distance := 12  ## passi minimi tra l'ingresso e la stanza di un nemico
 var shield_chance := 0.0      ## probabilità che il piano abbia uno scudo a terra
 var bear_trap_count := Vector2i.ZERO  ## tagliole a terra (min, max)
+var backpack_chance := 0.0    ## probabilità che il piano abbia uno zaino a terra
 
 var _rng := RandomNumberGenerator.new()
 
@@ -84,8 +85,8 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 
 
 ## Una torcia a terra nella stanza d'ingresso (mai sotto i piedi del giocatore);
-## il resto sparso nelle altre stanze, mai sull'uscita, con le tagliole (`bear_trap_count`) e, con probabilità
-## `shield_chance`, uno scudo.
+## il resto sparso nelle altre stanze, mai sull'uscita, con le tagliole (`bear_trap_count`) e, con le loro
+## probabilità, uno scudo (`shield_chance`) e uno zaino (`backpack_chance`).
 ## Va chiamata subito dopo generate(): continua lo stesso generatore casuale,
 ## quindi stesso seed + stessi conteggi = stessi oggetti negli stessi punti.
 func place_items(torch_count: int, flint_count: int) -> void:
@@ -112,14 +113,22 @@ func place_items(torch_count: int, flint_count: int) -> void:
 	if rooms.size() < 2:
 		return
 	for id in to_place:
-		for attempt in 20:
-			var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
-			var c := Vector2i(
-				_rng.randi_range(room.position.x, room.end.x - 1),
-				_rng.randi_range(room.position.y, room.end.y - 1))
-			if c != exit_cell and not items.has(c):
-				items[c] = id
-				break
+		_place_in_rooms(id)
+	# Gli oggetti aggiunti dopo vengono in fondo: quelli sopra restano dove erano.
+	if backpack_chance > 0.0 and _rng.randf() < backpack_chance:
+		_place_in_rooms(Items.BACKPACK)
+
+
+## Un oggetto in una cella a caso di una stanza (mai quella d'ingresso), libera e non sull'uscita.
+func _place_in_rooms(id: StringName) -> void:
+	for attempt in 20:
+		var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
+		var c := Vector2i(
+			_rng.randi_range(room.position.x, room.end.x - 1),
+			_rng.randi_range(room.position.y, room.end.y - 1))
+		if c != exit_cell and not items.has(c):
+			items[c] = id
+			return
 
 
 ## Barili, casse, bauli e candele contro i muri delle stanze.
@@ -212,7 +221,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 
 
 ## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, C Cieco, T torcia, A acciarino, U scudo, X tagliola,
-## D porta, L torcia a muro.
+## Z zaino, D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
 	for y in height:
@@ -225,6 +234,7 @@ func to_ascii() -> String:
 			elif items.get(c) == Items.FLINT: out += "A"
 			elif items.get(c) == Items.SHIELD: out += "U"
 			elif items.get(c) == Items.BEAR_TRAP: out += "X"
+			elif items.get(c) == Items.BACKPACK: out += "Z"
 			elif doors.has(c): out += "D"
 			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."

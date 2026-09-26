@@ -96,3 +96,19 @@ func clear() -> void:
 	slots.fill(&"")
 	selected = 0
 	changed.emit()
+
+
+## Aggiunge `extra` slot vuoti in fondo (lo zaino). Chi mostra gli slot deve seguire capacity().
+func grow(extra: int) -> void:
+	if extra <= 0:
+		return
+	slots.resize(slots.size() + extra)
+	for i in range(slots.size() - extra, slots.size()):
+		slots[i] = &""
+	changed.emit()
+
+
+## Svuota tutto e torna a `size` slot (nuova partita: lo zaino non c'è più).
+func reset(size: int) -> void:
+	slots.resize(size)
+	clear()

@@ -90,6 +90,20 @@ func _test_items(s: int) -> void:
 			ok = ok and not c.rooms[0].has_point(cell) and cell != c.exit_cell
 	_check(ok, "seed %d: tagliole e scudo fuori dalla stanza d'ingresso, torce e acciarino al loro posto" % s)
 
+	# Zaino: c'è se la probabilità è 1, fuori dalla stanza d'ingresso; gli altri oggetti non si spostano.
+	var d := Gen.new()
+	d.bear_trap_count = Vector2i(2, 2)
+	d.shield_chance = 1.0
+	d.backpack_chance = 1.0
+	d.generate(s)
+	d.place_items(4, 1)
+	var packs := d.items.keys().filter(func(cell: Vector2i) -> bool: return d.items[cell] == Items.BACKPACK)
+	_check(packs.size() == 1 and not d.rooms[0].has_point(packs[0]), "seed %d: uno zaino, fuori dalla stanza d'ingresso" % s)
+	ok = true
+	for cell: Vector2i in c.items:
+		ok = ok and d.items.get(cell) == c.items[cell]
+	_check(ok, "seed %d: lo zaino non sposta gli altri oggetti" % s)
+
 
 ## Su tanti seed e con ogni numero di torce: la stanza d'ingresso ha sempre la sua torcia a terra.
 ## (Il builder chiede sempre almeno una torcia: vedi DungeonBuilder.torches_for_floor.)

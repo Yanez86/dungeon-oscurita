@@ -1,7 +1,7 @@
 extends Node
 ## Stato globale della partita e configurazione dei comandi.
 
-const SLOT_KEYS := 5  ## tasti numerici per scegliere lo slot dell'inventario
+const SLOT_KEYS := 8  ## tasti numerici per scegliere lo slot dell'inventario (5 slot, 8 con lo zaino)
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)

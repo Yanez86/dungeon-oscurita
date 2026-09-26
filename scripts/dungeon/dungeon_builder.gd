@@ -30,6 +30,8 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var flints_per_floor := 1
 @export var shield_chance := 0.35  ## probabilità che il piano abbia uno scudo a terra
 @export var bear_traps_per_floor := Vector2i(1, 2)  ## tagliole a terra (min, max)
+@export var backpack_first_floor := 1.0  ## probabilità dello zaino a terra al piano 1 (1 = sempre)
+@export var backpack_chance := 0.15      ## …e nei piani dopo (per chi l'ha perso, o per i compagni in coop)
 
 @export_group("Struttura")
 @export var max_corridor := 12              ## distanza massima tra stanze collegate (celle)
@@ -107,6 +109,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.enemy_min_distance = enemy_min_distance
 	gen.shield_chance = shield_chance
 	gen.bear_trap_count = bear_traps_per_floor
+	gen.backpack_chance = backpack_first_floor if floor_number == 1 else backpack_chance
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 	gen.place_decorations()

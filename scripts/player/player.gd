@@ -36,6 +36,8 @@ extends CharacterBody3D
 @export var flint_loudness := 0.25  ## lo scatto dell'acciarino
 @export var bear_trap_distance := 0.9  ## metri davanti ai piedi dove si posa la tagliola (Q)
 @export var bear_trap_loudness := 0.35  ## aprire e posare la tagliola fa rumore
+@export var backpack_slots := 3        ## slot in più quando si mette lo zaino in spalla (uno solo a testa)
+@export var backpack_loudness := 0.15  ## il cuoio e le fibbie si sentono appena
 
 ## Frase breve da mostrare a schermo (la legge l'HUD).
 signal message(text: String)
@@ -84,7 +86,7 @@ func _ready() -> void:
 	reset_for_run()
 
 
-## Inizio partita: energia piena, diario vuoto, mani vuote e inventario iniziale;
+## Inizio partita: energia piena, diario vuoto, mani vuote e inventario iniziale (senza zaino);
 ## la prima torcia è a terra nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
 func reset_for_run() -> void:
 	if _death_tween:
@@ -98,7 +100,7 @@ func reset_for_run() -> void:
 	pit_rope = false
 	health.reset()
 	journal.clear()
-	inventory.clear()
+	inventory.reset(inventory_slots)
 	for id in start_items:
 		inventory.add(id)
 	torch.empty()
@@ -335,10 +337,31 @@ func _use_selected() -> void:
 		_throw_torch()
 	elif id == Items.FLINT:
 		_strike_flint()
+	elif id == Items.BACKPACK:
+		_wear_backpack()
 	elif id == Items.TORCH_BURNT:
 		message.emit("Legno bruciato: non fa più luce. G per buttarlo.")
 	else:
 		_light_hint()
+
+
+## Ha già uno zaino in spalla: l'inventario è più grande di quello iniziale.
+func has_backpack() -> bool:
+	return inventory.capacity() > inventory_slots
+
+
+## Q con lo zaino: lo si mette in spalla e l'inventario guadagna `backpack_slots` posti, per tutta la partita.
+## Uno solo a testa: un secondo zaino resta un oggetto da lasciare (in coop, a un compagno).
+func _wear_backpack() -> void:
+	if has_backpack():
+		message.emit("Hai già uno zaino in spalla.")
+		return
+	inventory.take(inventory.selected)
+	inventory.grow(backpack_slots)
+	Sfx.play_at(self, &"backpack_on", head.global_position)
+	NoiseBus.emit_noise(global_position, backpack_loudness, self)
+	message.emit("Zaino in spalla: %d posti in più (tasti 1–%d)." % [backpack_slots, inventory.capacity()])
+	note("Messo in spalla lo zaino: %d posti nell'inventario." % inventory.capacity())
 
 
 ## Q con la torcia accesa in mano: la butta a terra, dove continua a bruciare. Se ce n'è una

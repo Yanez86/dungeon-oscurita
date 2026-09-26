@@ -48,7 +48,7 @@ func _ready() -> void:
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
-## Numero del tasto (1–5) mostrato nell'angolo.
+## Numero del tasto (1–8) mostrato nell'angolo.
 func set_number(n: int) -> void:
 	_number.text = str(n)
 

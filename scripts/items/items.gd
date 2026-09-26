@@ -12,6 +12,7 @@ const ROPE := &"rope"     ## corda: l'unico modo per risalire da una fossa (boto
 const SHIELD := &"shield"                   ## scudo: nell'inventario para 1 danno per colpo
 const SHIELD_CRACKED := &"shield_cracked"   ## scudo che ha già parato un colpo: al prossimo si rompe
 const BEAR_TRAP := &"bear_trap"             ## tagliola usa e getta: posata con Q, blocca un nemico per qualche secondo
+const BACKPACK := &"backpack"               ## zaino: messo in spalla con Q dà slot in più, per tutta la partita
 
 const NAMES := {
 	TORCH: "Torcia",
@@ -23,6 +24,7 @@ const NAMES := {
 	SHIELD: "Scudo",
 	SHIELD_CRACKED: "Scudo incrinato",
 	BEAR_TRAP: "Tagliola",
+	BACKPACK: "Zaino",
 }
 
 const DESCRIPTIONS := {
@@ -35,6 +37,7 @@ const DESCRIPTIONS := {
 	SHIELD: "Uno scudo rotondo di legno cerchiato di ferro. Basta averlo con sé: para 1 danno di ogni colpo. Dopo due colpi si rompe.",
 	SHIELD_CRACKED: "Lo scudo ha già parato un colpo ed è incrinato: para 1 danno ancora una volta, poi si rompe.",
 	BEAR_TRAP: "Una tagliola di ferro. Selezionala e premi Q per posarla davanti ai piedi (fa rumore). Il Cieco non la vede: ci finisce dentro e resta bloccato 3 secondi, e lo scatto si sente lontano. Si usa una volta sola.",
+	BACKPACK: "Uno zaino di cuoio. Selezionalo e premi Q per metterlo in spalla: 3 posti in più per il resto della partita. Se ne porti solo uno.",
 }
 
 

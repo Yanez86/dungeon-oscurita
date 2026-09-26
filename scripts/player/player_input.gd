@@ -16,7 +16,7 @@ var interact := false     ## raccogli l'oggetto vicino
 var drop := false         ## lascia a terra l'oggetto selezionato
 var select_slot := -1     ## slot scelto con i tasti numerici (-1 = nessuno)
 
-## Menu aperto: niente movimento, torcia né interazioni. Slot (1–5) e G funzionano ancora.
+## Menu aperto: niente movimento, torcia né interazioni. Slot (1–8) e G funzionano ancora.
 var in_menu := false
 
 var _look := Vector2.ZERO

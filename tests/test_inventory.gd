@@ -19,6 +19,7 @@ func _init() -> void:
 	_test_shield()
 	_test_torches()
 	_test_torch_thrown()
+	_test_grow_and_reset()
 	print("Test inventario: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -80,6 +81,27 @@ func _test_replace() -> void:
 	_check(inv.replace(It.SHIELD, It.SHIELD_CRACKED) and inv.slots[1] == It.SHIELD_CRACKED, "replace resta nello stesso slot")
 	_check(not inv.replace(It.FLINT, It.TORCH), "replace di un oggetto assente: falso")
 	_check(not inv.replace(It.TORCH, &"") and inv.slots[0] == It.TORCH, "replace non svuota uno slot")
+
+
+## Zaino: gli slot in più arrivano vuoti in fondo, il contenuto resta; una nuova partita torna a 5.
+func _test_grow_and_reset() -> void:
+	var inv := Inv.new(5)
+	inv.add(It.FLINT)
+	inv.add(It.BACKPACK)
+	inv.select(1)
+	var calls := [0]
+	inv.changed.connect(func() -> void: calls[0] += 1)
+	inv.take(inv.selected)
+	inv.grow(3)
+	_check(inv.capacity() == 8 and inv.count(&"") == 7, "grow: 3 slot vuoti in più (%d)" % inv.capacity())
+	_check(inv.slots[0] == It.FLINT and inv.selected == 1, "grow: contenuto e selezione restano")
+	_check(calls[0] == 2, "grow emette changed")
+	inv.grow(0)
+	_check(inv.capacity() == 8 and calls[0] == 2, "grow(0) non cambia niente")
+	inv.select(7)
+	inv.add(It.TORCH)
+	inv.reset(5)
+	_check(inv.capacity() == 5 and inv.count(&"") == 5 and inv.selected == 0, "reset: 5 slot vuoti, selezione sul primo")
 
 
 func _test_put() -> void:
