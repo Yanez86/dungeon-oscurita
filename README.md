@@ -24,9 +24,9 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | G | Lasciare a terra l'oggetto selezionato (fa rumore) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
 | R | Nuova partita |
-| F3 | Debug |
+| F3 | Debug (anche lo stato di ogni Cieco e la sua distanza) |
 | F4 | Filtro retro PS1 on/off |
-| F6 / F7 | Solo build di debug: togliere / ridare un punto di energia (per provare la barra finché non ci sono nemici) |
+| F6 / F7 | Solo build di debug: togliere / ridare un punto di energia |
 | Tab | Menu: scheda del giocatore (energia, torcia, rumore dei passi). Il gioco non si ferma: la torcia continua a bruciare |
 | I | Menu: inventario (clic su uno slot per selezionarlo, pulsante per lasciarlo a terra) |
 | J | Menu: diario (cosa è successo, piano per piano) |
@@ -38,6 +38,7 @@ Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torc
 Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi in mano (se ne tieni già una, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
 In alto a sinistra la barra dell'energia (10 punti: pochi colpi bastano) e, sotto, il riquadro della torcia accesa; in basso gli slot dell'inventario con le icone degli oggetti.
 L'energia non si recupera e passa da un piano all'altro. A zero si muore: la partita finisce con una schermata che riassume piano, tempo, causa e seed; R ne avvia una nuova.
+**Il Cieco** (un Cieco al piano 1, uno in più ogni due piani, fino a 4) sente soltanto. Vaga lento e respira forte: al buio lo senti prima di vederlo. Se sente un rumore corre dove l'ha sentito (4,5 m/s: camminando non gli scappi, correndo sì), annusa qualche secondo e se ne va. Non ti insegue: va sempre verso l'ultimo rumore, quindi fermarsi o accucciarsi (i passi accucciati si sentono solo entro 2 m) lo lascia a mani vuote. Il suono segue i corridoi e le porte chiuse lo attutiscono. Le porte non le apre: se il rumore viene da dietro una porta chiusa gratta per qualche secondo e rinuncia; una porta non si chiude se nel vano c'è qualcuno. Se ti tocca ti toglie 3 punti di energia e si ritrae per 2 secondi: è il momento di allontanarsi in silenzio.
 Il menu (Tab, I, J, Esc) è un prototipo con quattro schede: scheda del giocatore, inventario, diario (si scrive da solo: piani, oggetti raccolti e lasciati, torce accese e consumate) e impostazioni. Col menu aperto il personaggio sta fermo ma il tempo scorre: in coop non si può mettere in pausa.
 Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si vede solo quando la luce li raggiunge o quando ci passi accanto.
 
@@ -47,7 +48,8 @@ Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si 
 scenes/            scene (.tscn)
 scripts/
   autoload/        Game (stato, comandi), NoiseBus (eventi rumore), Settings (impostazioni salvate)
-  dungeon/         generatore (solo dati) e costruttore 3D
+  dungeon/         generatore (solo dati), costruttore 3D, mappa dei passaggi per i nemici
+  enemies/         il Cieco: corpo (blind.gd) e cervello a stati (blind_brain.gd, solo dati)
   voxel/           file .vox di MagicaVoxel e loro conversione in mesh
   player/          movimento, input separato, torcia
   items/           catalogo oggetti, inventario (solo dati), oggetti a terra
@@ -75,6 +77,7 @@ godot --headless -s res://tests/test_ground_torch.gd
 godot --headless -s res://tests/test_health.gd
 godot --headless -s res://tests/test_journal.gd
 godot --headless -s res://tests/test_settings.gd
+godot --headless -s res://tests/test_blind.gd
 ```
 
 ## Build per i tester

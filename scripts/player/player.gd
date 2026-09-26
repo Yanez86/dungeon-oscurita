@@ -402,12 +402,15 @@ func _find_nearby_pickup() -> Pickup:
 	return best
 
 
-## E su una porta: se è chiusa la apre, se è aperta la richiude (non da dentro il vano).
+## E su una porta: se è chiusa la apre, se è aperta la richiude (non se nel vano c'è qualcuno).
 func _use_door(door: Door) -> void:
 	if not door.is_open:
 		door.open(self)
 	elif not door.close(self):
-		message.emit("Esci dal vano per chiudere la porta.")
+		if not door.can_close(self):
+			message.emit("Esci dal vano per chiudere la porta.")
+		else:
+			message.emit("Qualcosa è nel vano: la porta non si chiude.")
 
 
 ## La porta più vicina entro `pickup_range`, aperta o chiusa.

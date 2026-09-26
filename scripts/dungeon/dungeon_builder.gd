@@ -37,7 +37,14 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var start_room_size := Vector2i(3, 4)  ## lato minimo e massimo della stanza d'ingresso
 @export var start_wall_torches := 2            ## la stanza d'ingresso è sempre illuminata
 
+@export_group("Nemici")
+@export var blind_first_floor := 1       ## Ciechi al piano 1
+@export var floors_per_extra_blind := 2  ## ogni quanti piani c'è un Cieco in più
+@export var blind_max := 4
+@export var enemy_min_distance := 12     ## passi minimi tra l'ingresso e la stanza di un nemico
+
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
+const BLIND_SCENE := preload("res://scenes/blind.tscn")
 const GROUND_TORCH_SCENE := preload("res://scenes/ground_torch.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
@@ -61,6 +68,7 @@ const DECORATION_MODELS: Dictionary[StringName, Array] = {
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var gen: DungeonGenerator
+var nav: DungeonNav  ## mappa dei passaggi per i nemici: le porte la aggiornano quando si aprono o chiudono
 var _exit_armed := false
 
 
@@ -76,9 +84,13 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.wall_torch_count = wall_torch_count
 	gen.start_room_size = start_room_size
 	gen.start_wall_torches = start_wall_torches
+	gen.enemy_min_distance = enemy_min_distance
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 	gen.place_decorations()
+	gen.place_enemies(blinds_for_floor(floor_number))
+	nav = DungeonNav.new(gen)
+	nav.cell_size = CELL
 
 	var floors: Array[Vector2i] = []
 	var walls: Array[Vector2i] = []
@@ -106,6 +118,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 		spawn_pickup(gen.items[c], cell_to_world(c))
 	_add_doors()
 	_add_wall_torches()
+	_add_blinds(seed_value)
 
 
 ## Le torce diventano più rare scendendo (GDD: generazione procedurale).
@@ -113,6 +126,12 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 func torches_for_floor(floor_number: int) -> int:
 	var lost := floori(float(floor_number - 1) / maxi(floors_per_torch_lost, 1))
 	return maxi(maxi(torches_min, 1), torches_first_floor - lost)
+
+
+## Scendendo i Ciechi aumentano: uno in più ogni `floors_per_extra_blind` piani, fino a `blind_max`.
+func blinds_for_floor(floor_number: int) -> int:
+	var extra := floori(float(floor_number - 1) / maxi(floors_per_extra_blind, 1))
+	return clampi(blind_first_floor + extra, 0, blind_max)
 
 
 ## Crea un oggetto a terra. Usato dal generatore e quando il giocatore lascia qualcosa.
@@ -313,6 +332,19 @@ func _add_doors() -> void:
 		add_child(door)
 		door.opened.connect(door_opened.emit.bind(c))
 		door.closed.connect(door_closed.emit.bind(c))
+		door.opened.connect(nav.set_door.bind(c, true))
+		door.closed.connect(nav.set_door.bind(c, false))
+
+
+## I Ciechi nelle celle scelte dal generatore. Ognuno ha il suo seed: stesso piano, stesse scelte
+## a parità di rumori.
+func _add_blinds(seed_value: int) -> void:
+	for i in gen.enemies.size():
+		var b: Blind = BLIND_SCENE.instantiate()
+		b.setup(nav, seed_value + 101 * (i + 1))
+		b.position = cell_to_world(gen.enemies[i]) + Vector3.UP * 0.05
+		b.rotation.y = i * 2.4
+		add_child(b)
 
 
 ## Torce appese alla faccia del muro, rivolte verso la stanza.

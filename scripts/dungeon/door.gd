@@ -96,9 +96,22 @@ func can_close(body: Node3D) -> bool:
 	return absf(to_local(body.global_position).z) >= clearance
 
 
-## Richiude la porta. Restituisce false se era già chiusa o se `closer` è nel vano.
+## Un giocatore o un nemico (diverso da `closer`) fermo nel vano, o null: la porta non gli si chiude addosso,
+## altrimenti resterebbe incastrato nell'anta.
+func blocker(closer: Node3D = null) -> Node3D:
+	for group: StringName in [&"player", &"enemy"]:
+		for node in get_tree().get_nodes_in_group(group):
+			var body := node as Node3D
+			if body == null or body == closer:
+				continue
+			if absf(to_local(body.global_position).x) < width / 2.0 and not can_close(body):
+				return body
+	return null
+
+
+## Richiude la porta. Restituisce false se era già chiusa o se nel vano c'è `closer` o qualcun altro.
 func close(closer: Node3D) -> bool:
-	if not is_open or not can_close(closer):
+	if not is_open or not can_close(closer) or blocker(closer) != null:
 		return false
 	is_open = false
 	_collision.set_deferred("disabled", false)

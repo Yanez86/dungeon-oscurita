@@ -40,6 +40,10 @@ func _process(_delta: float) -> void:
 		if torch:
 			lines.append("Torcia: %.0f s %s" % [torch.fuel, "" if torch.lit else "(spenta)"])
 	lines.append("Rumore: %s" % "|".repeat(int(NoiseBus.last_loudness * 20.0)))
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var blind := node as Blind
+		if blind and player:
+			lines.append("Cieco: %s · %.0f m" % [blind.state_name(), blind.global_position.distance_to(player.global_position)])
 	lines.append("")
 	lines.append("WASD muovi · Shift corri · Ctrl accovacciati")
 	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa")
