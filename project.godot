@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 Game="*res://scripts/autoload/game.gd"
 NoiseBus="*res://scripts/autoload/noise_bus.gd"
+Settings="*res://scripts/autoload/settings.gd"
 
 [display]
 

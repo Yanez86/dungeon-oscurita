@@ -1,11 +1,11 @@
 class_name PsxFilter
 extends CanvasLayer
-## Filtro retro PS1 a tutto schermo (F4 lo accende e spegne).
+## Filtro retro PS1 a tutto schermo. Acceso o spento da Settings.psx_filter
+## (F4 o menu Impostazioni), così la scelta resta salvata.
 ## Sta sul layer -1: sopra il mondo 3D ma sotto l'HUD, che resta leggibile.
 
 const SHADER := preload("res://shaders/psx_post.gdshader")
 
-@export var enabled := true
 @export var target_height := 240.0   ## righe verticali "retro"
 @export var color_levels := 24.0     ## livelli per canale di colore
 @export var dither_strength := 1.0
@@ -28,10 +28,10 @@ func _ready() -> void:
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_rect)
-	visible = enabled
+	visible = Settings.psx_filter
+	Settings.changed.connect(func() -> void: visible = Settings.psx_filter)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("psx_toggle"):
-		enabled = not enabled
-		visible = enabled
+		Settings.update("psx_filter", not Settings.psx_filter)

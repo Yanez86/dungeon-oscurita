@@ -25,16 +25,17 @@ Ogni funzionalità deve rafforzarne almeno uno:
 ## Struttura
 ```
 scenes/              main.tscn, player.tscn, pickup.tscn, ground_torch.tscn, door.tscn, wall_torch.tscn
-scripts/autoload/    game.gd (seed, piano, comandi), noise_bus.gd
+scripts/autoload/    game.gd (seed, piano, tempo, comandi), noise_bus.gd, settings.gd (impostazioni salvate in user://settings.cfg)
 scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi), dungeon_builder.gd (3D), door.gd, wall_torch.gd
 scripts/voxel/       vox_model.gd (file .vox di MagicaVoxel), voxel_mesher.gd (voxel -> mesh), voxels.gd (caricamento modelli)
 assets/voxels/       tutti i modelli del gioco in .vox: muri, pavimenti, porte, arredi, torce a muro (1 voxel = 0.125 m)
 tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
-scripts/player/      player.gd, player_input.gd, torch.gd, health.gd (energia, solo dati)
+scripts/player/      player.gd, player_input.gd, torch.gd, health.gd (energia, solo dati), journal.gd (diario, solo dati)
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola)
-scripts/ui/          hud.gd (slot e messaggi), item_icons.gd (icone = miniature 3D dei modelli item_*), item_slot.gd, health_bar.gd + pips.gd (barra dell'energia), debug_overlay.gd (F3, F6/F7), psx_filter.gd (filtro retro, F4)
+scripts/ui/          hud.gd (slot e messaggi), item_icons.gd (icone = miniature 3D dei modelli item_*), item_slot.gd, health_bar.gd + pips.gd (barra dell'energia), ui_theme.gd (stile dei menu), debug_overlay.gd (F3, F6/F7), psx_filter.gd (filtro retro, F4)
+scripts/ui/menu/     game_menu.gd (menu a schede: Tab, I, J, Esc) + una pagina per scheda (menu_page.gd è la base)
 shaders/             psx_post.gdshader (post-processing retro PS1), pickup_glow.gdshader (aura degli oggetti a terra), icon_outline.gdshader (bordino delle icone)
-tests/               test headless (generatore, inventario, voxel, mappa esplorata, torcia a terra, energia)
+tests/               test headless (generatore, inventario, voxel, mappa esplorata, torcia a terra, energia, diario, impostazioni)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
 

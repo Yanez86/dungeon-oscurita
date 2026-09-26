@@ -17,6 +17,7 @@ var minimap := Minimap.new()
 var health_bar := HealthBar.new()
 var torch_buff := TorchBuff.new()
 var icons := ItemIcons.new()  ## icone degli oggetti, condivise con il menu
+var menu := GameMenu.new()     ## scheda, inventario, diario, impostazioni (Tab, I, J, Esc)
 
 var _status := VBoxContainer.new()  ## colonna in alto a sinistra: energia, poi torcia
 var _slots := HBoxContainer.new()
@@ -57,6 +58,8 @@ func _ready() -> void:
 
 	add_child(minimap)
 	add_child(icons)
+	menu.icons = icons
+	add_child(menu)
 
 
 func _set_player(p: Player) -> void:
@@ -64,6 +67,7 @@ func _set_player(p: Player) -> void:
 	minimap.player = p
 	health_bar.health = p.health
 	torch_buff.torch = p.torch
+	menu.player = p
 	player.message.connect(_show_message)
 	player.inventory.changed.connect(_refresh_slots)
 	for i in player.inventory.capacity():

@@ -11,6 +11,15 @@ const NAMES := {
 	FLINT: "Acciarino",
 }
 
+const DESCRIPTIONS := {
+	TORCH: "Una torcia di scorta. Quando la tua si consuma, accendila con l'acciarino o dalla fiamma di quella che hai in mano (Q).",
+	FLINT: "Acciarino e selce. Selezionalo e premi Q per accendere una torcia al buio. Lo scatto si sente.",
+}
+
 
 static func display_name(id: StringName) -> String:
 	return NAMES.get(id, String(id))
+
+
+static func description(id: StringName) -> String:
+	return DESCRIPTIONS.get(id, "")

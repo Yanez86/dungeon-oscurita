@@ -6,10 +6,15 @@ const SLOT_KEYS := 5  ## tasti numerici per scegliere lo slot dell'inventario
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)
 var floor_number: int = 1  ## piano corrente
+var run_time := 0.0        ## secondi passati nel dungeon in questa partita (scheda del giocatore)
 
 
 func _ready() -> void:
 	_setup_input()
+
+
+func _process(delta: float) -> void:
+	run_time += delta  # anche col menu aperto: il gioco non si ferma
 
 
 ## Seed del piano corrente: stesso seed partita + stesso piano = stesso dungeon.
@@ -33,6 +38,9 @@ func _setup_input() -> void:
 	_bind("map_toggle", [KEY_M])
 	_bind("new_run", [KEY_R])
 	_bind("debug_toggle", [KEY_F3])
+	_bind("menu", [KEY_TAB])
+	_bind("menu_inventory", [KEY_I])
+	_bind("menu_journal", [KEY_J])
 	_bind("psx_toggle", [KEY_F4])
 	_bind("debug_hurt", [KEY_F6])
 	_bind("debug_heal", [KEY_F7])

@@ -21,6 +21,7 @@ func _ready() -> void:
 func start_run(run_seed: int) -> void:
 	Game.run_seed = run_seed
 	Game.floor_number = 1
+	Game.run_time = 0.0
 	player.reset_for_run()
 	_load_floor()
 
@@ -31,6 +32,7 @@ func _load_floor() -> void:
 	player.global_position = dungeon.cell_to_world(dungeon.gen.start_cell) + Vector3.UP * 0.1
 	player.velocity = Vector3.ZERO
 	hud.minimap.start_floor(dungeon.gen)  # ogni piano si esplora da zero
+	player.note("Entri nel dungeon." if Game.floor_number == 1 else "Scendi al piano %d." % Game.floor_number)
 	print("Piano %d (seed partita %d)\n%s" % [Game.floor_number, Game.run_seed, dungeon.gen.to_ascii()])
 
 

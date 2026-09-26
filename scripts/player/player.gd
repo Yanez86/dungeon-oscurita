@@ -3,6 +3,7 @@ extends CharacterBody3D
 ## Giocatore in prima persona. Non legge mai la tastiera direttamente:
 ## usa le intenzioni del nodo Input (vedi player_input.gd).
 
+@export var player_name := "Esploratore"  ## in coop sarà il nome scelto nella lobby
 @export var walk_speed := 3.0
 @export var sprint_speed := 5.5
 @export var crouch_speed := 1.5
@@ -44,6 +45,7 @@ const HEAD_CROUCH := 1.0
 
 var inventory: Inventory
 var health: Health
+var journal := Journal.new()  ## diario della partita (lo mostra il menu)
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
 var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
 
@@ -55,19 +57,30 @@ func _ready() -> void:
 	add_to_group("player")
 	inventory = Inventory.new(inventory_slots)
 	health = Health.new(max_health)
-	torch.burned_out.connect(func() -> void: message.emit("La torcia si è consumata."))
+	torch.burned_out.connect(_on_torch_burned_out)
 	reset_for_run()
 
 
-## Inizio partita: energia piena, mani vuote e inventario iniziale; la prima torcia è a terra
-## nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
+## Inizio partita: energia piena, diario vuoto, mani vuote e inventario iniziale;
+## la prima torcia è a terra nella stanza d'ingresso. Tra un piano e l'altro non si chiama.
 func reset_for_run() -> void:
 	health.reset()
+	journal.clear()
 	inventory.clear()
 	for id in start_items:
 		inventory.add(id)
 	torch.empty()
 	message.emit("Raccogli la torcia a terra (E), seleziona l'acciarino e accendila (Q).")
+
+
+## Scrive una riga nel diario, sotto il piano corrente.
+func note(text: String) -> void:
+	journal.add(Game.floor_number, text)
+
+
+func _on_torch_burned_out() -> void:
+	message.emit("La torcia si è consumata.")
+	note("La torcia si è consumata.")
 
 
 func _physics_process(delta: float) -> void:
@@ -139,8 +152,10 @@ func _light_torch() -> void:
 		if inventory.remove(Items.TORCH):
 			torch.refill()
 			message.emit("Torcia a terra: ne accendi una nuova dalla sua fiamma.")
+			note("Nuova torcia accesa dalla fiamma di quella a terra.")
 		else:
 			message.emit("Torcia a terra: brucia finché non si consuma. E per riprenderla.")
+			note("Torcia accesa lasciata a terra.")
 		return
 
 	var relight := torch.fuel > 0.0
@@ -162,6 +177,7 @@ func _light_torch() -> void:
 		inventory.remove(Items.TORCH)
 		torch.refill()
 		message.emit("Nuova torcia accesa.")
+		note("Nuova torcia accesa.")
 
 
 ## E: raccoglie l'oggetto più vicino, se c'è posto.
@@ -178,6 +194,7 @@ func _pick_up() -> void:
 		message.emit("Raccolto: %s. Q per accenderla." % nearby_pickup.display_name())
 	else:
 		message.emit("Raccolto: %s" % nearby_pickup.display_name())
+	note("Raccolto: %s." % nearby_pickup.display_name())
 	nearby_pickup.queue_free()
 	nearby_pickup = null
 	NoiseBus.emit_noise(global_position, pickup_loudness, self)
@@ -214,6 +231,7 @@ func _drop_selected() -> void:
 		return
 	item_dropped.emit(id, _drop_position(drop_distance))
 	NoiseBus.emit_noise(global_position, drop_loudness, self)
+	note("Lasciato a terra: %s." % Items.display_name(id))
 
 
 ## Punto del pavimento `distance` metri davanti a sé, fermandosi prima di muri,

@@ -27,13 +27,17 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | F3 | Debug |
 | F4 | Filtro retro PS1 on/off |
 | F6 / F7 | Solo build di debug: togliere / ridare un punto di energia (per provare la barra finché non ci sono nemici) |
-| Esc | Libera il mouse |
+| Tab | Menu: scheda del giocatore (energia, torcia, rumore dei passi). Il gioco non si ferma: la torcia continua a bruciare |
+| I | Menu: inventario (clic su uno slot per selezionarlo, pulsante per lasciarlo a terra) |
+| J | Menu: diario (cosa è successo, piano per piano) |
+| Esc | Menu: impostazioni (sensibilità del mouse, volume, filtro PS1, schermo intero; si salvano da sole). Libera il mouse; se il menu è aperto lo chiude |
 
 Il cerchio blu è l'uscita: porta al piano successivo.
 Alcuni corridoi sono chiusi da porte (bloccano anche la luce) che si possono richiudere alle spalle; in certi piani ci sono torce appese ai muri, che non si consumano.
 Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torcia a terra. Si parte a mani vuote, con solo un acciarino: raccogli la torcia (E) e accendila (Q). Le altre torce vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
 Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi in mano (se ne tieni già una, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
 In alto a sinistra la barra dell'energia (10 punti: pochi colpi bastano) e, sotto, il riquadro della torcia accesa; in basso gli slot dell'inventario con le icone degli oggetti.
+Il menu (Tab, I, J, Esc) è un prototipo con quattro schede: scheda del giocatore, inventario, diario (si scrive da solo: piani, oggetti raccolti e lasciati, torce accese e consumate) e impostazioni. Col menu aperto il personaggio sta fermo ma il tempo scorre: in coop non si può mettere in pausa.
 Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si vede solo quando la luce li raggiunge o quando ci passi accanto.
 
 ## Struttura
@@ -41,12 +45,12 @@ Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si 
 ```
 scenes/            scene (.tscn)
 scripts/
-  autoload/        Game (stato, comandi), NoiseBus (eventi rumore)
+  autoload/        Game (stato, comandi), NoiseBus (eventi rumore), Settings (impostazioni salvate)
   dungeon/         generatore (solo dati) e costruttore 3D
   voxel/           file .vox di MagicaVoxel e loro conversione in mesh
   player/          movimento, input separato, torcia
   items/           catalogo oggetti, inventario (solo dati), oggetti a terra
-  ui/              HUD minimo, overlay di debug
+  ui/              HUD minimo, menu (ui/menu/), overlay di debug
 tests/             test automatici
 tools/             generatore dei modelli voxel e anteprima
 assets/            modelli (voxel/ in .vox), audio, texture
@@ -68,6 +72,8 @@ godot --headless -s res://tests/test_inventory.gd
 godot --headless -s res://tests/test_voxel.gd
 godot --headless -s res://tests/test_ground_torch.gd
 godot --headless -s res://tests/test_health.gd
+godot --headless -s res://tests/test_journal.gd
+godot --headless -s res://tests/test_settings.gd
 ```
 
 ## Build per i tester

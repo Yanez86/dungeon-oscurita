@@ -42,6 +42,12 @@ jobs:
       - name: Test dell'energia
         run: ./godot --headless -s res://tests/test_health.gd
 
+      - name: Test del diario
+        run: ./godot --headless -s res://tests/test_journal.gd
+
+      - name: Test delle impostazioni
+        run: ./godot --headless -s res://tests/test_settings.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log
