@@ -18,7 +18,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Shift | Correre (più rumore) |
 | Ctrl o C | Accovacciarsi (meno rumore) |
 | F | Spegnere la torcia |
-| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta). Con la torcia accesa la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una di scorta la accende dalla sua fiamma |
+| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta). Con la torcia accesa la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una di scorta la accende dalla sua fiamma. Con la tagliola selezionata la posa davanti ai piedi (fa rumore) |
 | E | Raccogliere l'oggetto vicino (una torcia buttata torna in mano) / aprire o chiudere una porta (fa rumore) |
 | 1–5 | Scegliere lo slot dell'inventario |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore) |
@@ -40,6 +40,7 @@ In alto a sinistra la barra dell'energia (10 punti: pochi colpi bastano) e, sott
 L'energia non si recupera e passa da un piano all'altro. A zero si muore: la partita finisce con una schermata che riassume piano, tempo, causa e seed; R ne avvia una nuova.
 **Il Cieco** (un Cieco al piano 1, uno in più ogni due piani, fino a 4) sente soltanto. Vaga lento e respira forte: al buio lo senti prima di vederlo. Se sente un rumore corre dove l'ha sentito (4,5 m/s: camminando non gli scappi, correndo sì), annusa qualche secondo e se ne va. Non ti insegue: va sempre verso l'ultimo rumore, quindi fermarsi o accucciarsi (i passi accucciati si sentono solo entro 2 m) lo lascia a mani vuote. Il suono segue i corridoi e le porte chiuse lo attutiscono. Le porte non le apre: se il rumore viene da dietro una porta chiusa gratta per qualche secondo e rinuncia; una porta non si chiude se nel vano c'è qualcuno. Se ti tocca ti toglie 3 punti di energia e si ritrae per 2 secondi: è il momento di allontanarsi in silenzio.
 **Scudo** (a volte a terra in un piano): basta averlo nell'inventario, para 1 danno di ogni colpo. Al primo colpo diventa "scudo incrinato", al secondo si rompe. Lo stato si vede nella scheda del giocatore (Tab).
+**Tagliola** (1–2 a terra per piano): selezionala e premi Q per posarla davanti ai piedi. Si arma dopo un secondo; il Cieco non la vede, ci finisce dentro e resta bloccato 3 secondi. Lo scatto si sente lontano e può richiamare altri Ciechi. Usa e getta; per ora non scatta sui giocatori.
 Il menu (Tab, I, J, Esc) è un prototipo con quattro schede: scheda del giocatore, inventario, diario (si scrive da solo: piani, oggetti raccolti e lasciati, torce accese e consumate) e impostazioni. Col menu aperto il personaggio sta fermo ma il tempo scorre: in coop non si può mettere in pausa.
 Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si vede solo quando la luce li raggiunge o quando ci passi accanto.
 

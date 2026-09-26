@@ -46,7 +46,7 @@ func _process(_delta: float) -> void:
 			lines.append("Cieco: %s · %.0f m" % [blind.state_name(), blind.global_position.distance_to(player.global_position)])
 	lines.append("")
 	lines.append("WASD muovi · Shift corri · Ctrl accovacciati")
-	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa")
+	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa / posa la tagliola selezionata")
 	lines.append("E raccogli · 1-5 scegli slot · G lascia a terra")
 	lines.append("Tab scheda · I inventario · J diario · Esc impostazioni · R nuova partita")
 	lines.append("F6 / F7  -1 / +1 energia (debug)")

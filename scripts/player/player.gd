@@ -34,6 +34,8 @@ extends CharacterBody3D
 @export var pickup_loudness := 0.1
 @export var drop_loudness := 0.35   ## lasciare a terra fa rumore (GDD)
 @export var flint_loudness := 0.25  ## lo scatto dell'acciarino
+@export var bear_trap_distance := 0.9  ## metri davanti ai piedi dove si posa la tagliola (Q)
+@export var bear_trap_loudness := 0.35  ## aprire e posare la tagliola fa rumore
 
 ## Frase breve da mostrare a schermo (la legge l'HUD).
 signal message(text: String)
@@ -46,6 +48,8 @@ signal torch_dropped(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool
 signal rope_hung
 ## È arrivato un colpo: `damage` punti tolti, `blocked` parati dallo scudo. L'HUD fa lampeggiare lo schermo.
 signal hurt_taken(damage: int, blocked: int)
+## Ha posato una tagliola: main.gd la fa comparire nel dungeon, armata.
+signal bear_trap_placed(world_pos: Vector3)
 
 const HEAD_STAND := 1.6
 const HEAD_CROUCH := 1.0
@@ -286,7 +290,10 @@ func _handle_items() -> void:
 	if input.torch_toggle:
 		_extinguish_torch()
 	if input.new_torch:
-		_light_torch()
+		if inventory.selected_item() == Items.BEAR_TRAP:
+			_place_bear_trap()
+		else:
+			_light_torch()
 	if input.interact:
 		if nearby_pickup:
 			_pick_up()
@@ -398,6 +405,18 @@ func _drop_selected() -> void:
 	item_dropped.emit(id, _drop_position(drop_distance))
 	NoiseBus.emit_noise(global_position, drop_loudness, self)
 	note("Lasciato a terra: %s." % Items.display_name(id))
+
+
+## Q con la tagliola selezionata: la posa davanti ai piedi, aperta. Usa e getta (vedi BearTrap).
+func _place_bear_trap() -> void:
+	if inventory.take(inventory.selected) != Items.BEAR_TRAP:
+		return
+	var pos := _drop_position(bear_trap_distance)
+	bear_trap_placed.emit(pos)
+	Sfx.play_at(self, &"trap_set", pos + Vector3.UP * 0.2)
+	NoiseBus.emit_noise(pos, bear_trap_loudness, self)
+	message.emit("Tagliola posata: tra un attimo è armata.")
+	note("Tagliola posata.")
 
 
 ## Punto del pavimento `distance` metri davanti a sé, fermandosi prima di muri,
