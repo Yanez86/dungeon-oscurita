@@ -38,6 +38,7 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var start_wall_torches := 2            ## la stanza d'ingresso è sempre illuminata
 
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
+const GROUND_TORCH_SCENE := preload("res://scenes/ground_torch.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
 const FLOOR_T := 0.25  ## spessore dei modelli di pavimento e soffitto
@@ -119,6 +120,17 @@ func spawn_pickup(item: StringName, world_pos: Vector3) -> Pickup:
 	p.position = world_pos
 	add_child(p)
 	return p
+
+
+## Una torcia usata che il giocatore ha lasciato a terra: se è accesa continua a bruciare.
+func spawn_ground_torch(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool) -> GroundTorch:
+	var t: GroundTorch = GROUND_TORCH_SCENE.instantiate()
+	t.fuel = fuel
+	t.max_fuel = max_fuel
+	t.lit = lit
+	t.position = world_pos
+	add_child(t)
+	return t
 
 
 func cell_to_world(c: Vector2i) -> Vector3:

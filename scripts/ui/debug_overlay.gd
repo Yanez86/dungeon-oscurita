@@ -38,7 +38,7 @@ func _process(_delta: float) -> void:
 	lines.append("Rumore: %s" % "|".repeat(int(NoiseBus.last_loudness * 20.0)))
 	lines.append("")
 	lines.append("WASD muovi · Shift corri · Ctrl accovacciati")
-	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato)")
+	lines.append("F spegni torcia · Q accendi (al buio: acciarino selezionato) / butta a terra quella accesa")
 	lines.append("E raccogli · 1-5 scegli slot · G lascia a terra")
 	lines.append("R nuova partita · Esc libera il mouse")
 	_details.text = "\n".join(lines)

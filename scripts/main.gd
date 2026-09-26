@@ -11,6 +11,7 @@ extends Node3D
 func _ready() -> void:
 	dungeon.exit_reached.connect(_on_exit_reached)
 	player.item_dropped.connect(dungeon.spawn_pickup)  # un segnale collegato a una funzione
+	player.torch_dropped.connect(dungeon.spawn_ground_torch)
 	dungeon.door_opened.connect(hud.minimap.open_door)
 	dungeon.door_closed.connect(hud.minimap.close_door)
 	hud.player = player

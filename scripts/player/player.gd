@@ -18,6 +18,8 @@ extends CharacterBody3D
 @export var inventory_slots := 5
 @export var start_items: Array[StringName] = [Items.FLINT]
 @export var pickup_range := 1.8     ## metri entro cui si può raccogliere
+@export var drop_distance := 0.6    ## metri davanti ai piedi dove cade un oggetto lasciato (G)
+@export var torch_throw_distance := 1.2  ## metri davanti a sé dove cade la torcia buttata (Q)
 @export var pickup_loudness := 0.1
 @export var drop_loudness := 0.35   ## lasciare a terra fa rumore (GDD)
 @export var flint_loudness := 0.25  ## lo scatto dell'acciarino
@@ -26,6 +28,9 @@ extends CharacterBody3D
 signal message(text: String)
 ## Il giocatore ha lasciato un oggetto: main.gd lo fa comparire nel dungeon.
 signal item_dropped(item: StringName, world_pos: Vector3)
+## Il giocatore ha messo a terra la torcia che aveva in mano (accesa o spenta):
+## main.gd la fa comparire nel dungeon, dove continua a bruciare.
+signal torch_dropped(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool)
 
 const HEAD_STAND := 1.6
 const HEAD_CROUCH := 1.0
@@ -116,16 +121,20 @@ func _extinguish_torch() -> void:
 		message.emit("Per accenderla seleziona l'acciarino e premi Q.")
 
 
-## Q: con la torcia in mano accesa se ne accende una di scorta dalla sua fiamma
-## (quella vecchia si butta). Al buio serve l'acciarino selezionato: si riaccende
-## prima la torcia già usata e, se è consumata, una di scorta.
+## Q: con la torcia in mano accesa la si butta a terra, dove continua a bruciare;
+## se c'è una torcia di scorta la si accende dalla sua fiamma. Al buio serve
+## l'acciarino selezionato: si riaccende prima la torcia già usata e, se è
+## consumata, una di scorta.
 func _light_torch() -> void:
 	if torch.lit:
-		if not inventory.remove(Items.TORCH):
-			message.emit("Nessuna torcia di scorta.")
-			return
-		torch.refill()
-		message.emit("Nuova torcia accesa.")
+		var pos := _drop_position(torch_throw_distance)
+		_put_down_torch(pos)
+		NoiseBus.emit_noise(pos, drop_loudness, self)
+		if inventory.remove(Items.TORCH):
+			torch.refill()
+			message.emit("Torcia a terra: ne accendi una nuova dalla sua fiamma.")
+		else:
+			message.emit("Torcia a terra: brucia finché non si consuma. E per riprenderla.")
 		return
 
 	var relight := torch.fuel > 0.0
@@ -153,6 +162,9 @@ func _light_torch() -> void:
 func _pick_up() -> void:
 	if nearby_pickup == null:
 		return
+	if nearby_pickup is GroundTorch:
+		_take_ground_torch(nearby_pickup as GroundTorch)
+		return
 	if not inventory.add(nearby_pickup.item):
 		message.emit("Inventario pieno: G per lasciare qualcosa.")
 		return
@@ -165,15 +177,51 @@ func _pick_up() -> void:
 	NoiseBus.emit_noise(global_position, pickup_loudness, self)
 
 
+## E su una torcia usata a terra: torna in mano così com'è, accesa o spenta.
+## Se in mano ce n'era un'altra, resta a terra al suo posto (scambio).
+func _take_ground_torch(ground: GroundTorch) -> void:
+	var swap := torch.fuel > 0.0
+	if swap:
+		_put_down_torch(ground.global_position)
+	torch.hold(ground.remaining_fuel(), ground.is_lit())
+	ground.queue_free()
+	nearby_pickup = null
+	if swap:
+		message.emit("Torce scambiate.")
+	elif torch.lit:
+		message.emit("Hai ripreso la torcia accesa.")
+	else:
+		message.emit("Hai ripreso la torcia: acciarino e Q per accenderla.")
+	NoiseBus.emit_noise(global_position, pickup_loudness, self)
+
+
+## Mette a terra la torcia che si ha in mano, così com'è: si resta a mani vuote.
+func _put_down_torch(pos: Vector3) -> void:
+	torch_dropped.emit(pos, torch.fuel, torch.max_fuel, torch.lit)
+	torch.empty()
+
+
 ## G: lascia l'oggetto dello slot selezionato davanti ai piedi.
 func _drop_selected() -> void:
 	var id := inventory.take(inventory.selected)
 	if id == &"":
 		return
-	var pos := global_position - global_transform.basis.z * 0.6
-	pos.y = 0.0
-	item_dropped.emit(id, pos)
+	item_dropped.emit(id, _drop_position(drop_distance))
 	NoiseBus.emit_noise(global_position, drop_loudness, self)
+
+
+## Punto del pavimento `distance` metri davanti a sé, fermandosi prima di muri,
+## porte e arredi: un oggetto (o una fiamma) non deve finire dentro un muro.
+func _drop_position(distance: float) -> Vector3:
+	var from := global_position + Vector3.UP * 0.3
+	var forward := -global_transform.basis.z
+	var to := from + forward * distance
+	var query := PhysicsRayQueryParameters3D.create(from, to, collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		var wall_distance := from.distance_to(hit["position"] as Vector3)
+		to = from + forward * maxf(wall_distance - 0.25, 0.0)
+	return Vector3(to.x, 0.0, to.z)
 
 
 func _find_nearby_pickup() -> Pickup:

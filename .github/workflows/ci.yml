@@ -36,6 +36,9 @@ jobs:
       - name: Test dei voxel
         run: ./godot --headless -s res://tests/test_voxel.gd
 
+      - name: Test della torcia a terra
+        run: ./godot --headless -s res://tests/test_ground_torch.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log

@@ -2,7 +2,7 @@ extends Node
 ## Screenshot di controllo dei modelli voxel (serve la grafica: niente --headless).
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
 ## Salva gallery.png (muri, pavimenti, porta), props.png (arredi e torcia), room.png (stanza d'ingresso), door.png (una porta), decoration.png (un arredo),
-## pickup.png (oggetti a terra) e hand.png (prima persona con la torcia in mano).
+## pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
 	&"ceiling", &"wall_a", &"wall_cracked", &"wall_shelves", &"pillar", &"door_frame", &"door_leaf"]
@@ -80,8 +80,16 @@ func _run() -> void:
 		cam.look_at(pp + Vector3(0.2, 0, 0.1))
 		await _shot("pickup.png")
 
-	# In prima persona, con la torcia accesa in mano (la luce della camera si spegne).
+	# Una torcia buttata a terra, accesa, in un'altra stanza: è l'unica luce (quella della camera si spegne).
 	torch.visible = false
+	if dungeon.gen.rooms.size() > 1:
+		var gp := dungeon.cell_to_world(dungeon.gen.rooms[1].get_center())
+		dungeon.spawn_ground_torch(gp, 150.0, 180.0, true)
+		cam.position = gp + Vector3(1.5, 1.6, 1.5)
+		cam.look_at(gp)
+		await _shot("ground_torch.png")
+
+	# In prima persona, con la torcia accesa in mano.
 	var player := (load("res://scenes/player.tscn") as PackedScene).instantiate() as Player
 	add_child(player)
 	player.global_position = dungeon.cell_to_world(dungeon.gen.start_cell) + Vector3.UP * 0.1

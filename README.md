@@ -18,8 +18,8 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Shift | Correre (più rumore) |
 | Ctrl o C | Accovacciarsi (meno rumore) |
 | F | Spegnere la torcia |
-| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta); con la torcia accesa ne accende una di scorta dalla fiamma |
-| E | Raccogliere l'oggetto vicino / aprire o chiudere una porta (fa rumore) |
+| Q | Accendere la torcia: al buio serve l'acciarino selezionato (riaccende quella già usata, se è finita ne accende una di scorta). Con la torcia accesa la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una di scorta la accende dalla sua fiamma |
+| E | Raccogliere l'oggetto vicino (una torcia buttata torna in mano) / aprire o chiudere una porta (fa rumore) |
 | 1–5 | Scegliere lo slot dell'inventario |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
@@ -31,6 +31,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 Il cerchio blu è l'uscita: porta al piano successivo.
 Alcuni corridoi sono chiusi da porte (bloccano anche la luce) che si possono richiudere alle spalle; in certi piani ci sono torce appese ai muri, che non si consumano.
 Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torcia a terra. Si parte a mani vuote, con solo un acciarino: raccogli la torcia (E) e accendila (Q). Le altre torce vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot e si conserva tra un piano e l'altro.
+Una torcia buttata a terra con Q resta accesa e fa luce finché ha combustibile: con E la riprendi in mano (se ne tieni già una, si scambiano); consumata, resta un moncone annerito che non si può più raccogliere.
 Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si vede solo quando la luce li raggiunge o quando ci passi accanto.
 
 ## Struttura
@@ -63,6 +64,7 @@ assets/            modelli (voxel/ in .vox), audio, texture
 godot --headless -s res://tests/test_generator.gd
 godot --headless -s res://tests/test_inventory.gd
 godot --headless -s res://tests/test_voxel.gd
+godot --headless -s res://tests/test_ground_torch.gd
 ```
 
 ## Build per i tester

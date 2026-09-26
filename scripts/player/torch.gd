@@ -3,6 +3,7 @@ extends OmniLight3D
 ## Torcia a consumo: perde intensità e raggio e sfarfalla sempre di più.
 ## Nessuna barra: il giocatore capisce che sta finendo guardando la luce e la fiamma che si rimpicciolisce.
 ## Il nodo è la luce e sta nella fiamma; il modello voxel della torcia pende sotto.
+## Senza modello (held = false) fa da luce e fiamma a una torcia buttata a terra (GroundTorch).
 
 signal burned_out
 
@@ -15,6 +16,7 @@ signal burned_out
 @export var sway := 0.03           ## metri: la fiamma ondeggia e le ombre danzano
 
 @export_group("Modello in mano")
+@export var held := true  ## falso per una torcia a terra: niente modello in mano, solo luce e fiamma
 @export var hand_lean := Vector3(-0.3, 0.0, 0.35)  ## inclinazione della torcia (radianti): la cima verso il centro dello schermo
 @export var flame_min_scale := 0.35  ## grandezza della fiamma quando la torcia sta per finire
 
@@ -84,6 +86,12 @@ func empty() -> void:
 	lit = false
 
 
+## Prende una torcia già usata (raccolta da terra) così com'è, accesa o spenta.
+func hold(amount: float, burning: bool) -> void:
+	fuel = clampf(amount, 0.0, max_fuel)
+	lit = burning and fuel > 0.0
+
+
 ## Sostituisce la torcia in mano con una nuova, accesa e piena.
 func refill(amount: float = -1.0) -> void:
 	fuel = max_fuel if amount < 0.0 else minf(fuel + amount, max_fuel)
@@ -94,14 +102,15 @@ func refill(amount: float = -1.0) -> void:
 ## sta attaccato alla luce e oscurerebbe mezza stanza.
 func _build_model() -> void:
 	var flame_size := Vector3(1.5, 2.5, 1.5) * Voxels.ITEM_VOXEL_SIZE
-	var model := Voxels.instance(&"item_torch")
-	model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	model.position.y = -model.mesh.get_aabb().size.y
 	_hand_base = Vector3(0.0, -flame_size.y / 2.0, 0.0)
 	_hand.position = _hand_base
 	_hand.rotation = hand_lean
-	_hand.add_child(model)
 	add_child(_hand)
+	if held:
+		var model := Voxels.instance(&"item_torch")
+		model.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		model.position.y = -model.mesh.get_aabb().size.y
+		_hand.add_child(model)
 
 	var box := BoxMesh.new()
 	box.size = flame_size
