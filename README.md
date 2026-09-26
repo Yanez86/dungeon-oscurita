@@ -42,6 +42,19 @@ L'energia non si recupera e passa da un piano all'altro. A zero si muore: la par
 **Il Cieco** (un Cieco al piano 1, uno in più ogni due piani, fino a 4) sente soltanto. Vaga lento e respira forte: al buio lo senti prima di vederlo. Se sente un rumore corre dove l'ha sentito (4,5 m/s: camminando non gli scappi, correndo sì), annusa qualche secondo e se ne va. Non ti insegue: va sempre verso l'ultimo rumore, quindi fermarsi o accucciarsi (i passi accucciati si sentono solo entro 2 m) lo lascia a mani vuote. Il suono segue i corridoi e le porte chiuse lo attutiscono. Le porte non le apre: se il rumore viene da dietro una porta chiusa gratta per qualche secondo e rinuncia; una porta non si chiude se nel vano c'è qualcuno. Se ti tocca ti toglie 3 punti di energia e si ritrae per 2 secondi: è il momento di allontanarsi in silenzio.
 **Scudo** (a volte a terra in un piano): basta averlo nell'inventario, para 1 danno di ogni colpo. Al primo colpo diventa "scudo incrinato", al secondo si rompe. Lo stato si vede nella scheda del giocatore (Tab).
 **Tagliola** (1–2 a terra per piano): selezionala e premi Q per posarla davanti ai piedi. Si arma dopo un secondo; il Cieco non la vede, ci finisce dentro e resta bloccato 3 secondi. Lo scatto si sente lontano e può richiamare altri Ciechi. Usa e getta; per ora non scatta sui giocatori.
+**Trappole** (2 al piano 1, una in più a ogni piano, fino a 8; mai vicino all'ingresso). Ognuna ha un innesco che si vede, se guardi dove metti i piedi; quando scatta fa un suono breve e l'effetto arriva un attimo dopo: chi reagisce subito si salva. Chi viene ferito grida, e il Cieco lo sente.
+
+| Trappola | Cosa si vede | Cosa fa | Come evitarla | Dal piano |
+| --- | --- | --- | --- | --- |
+| Frecce dal pavimento | piastra al centro di una lastra piena di forellini | clic quasi muto, poi le frecce escono e rientrano in silenzio: 3 danni a chi è sulla cella. Si riarma | aggira la piastra, o esci subito dalla cella | 1 |
+| Soffio | piastra in un corridoio, due grate nei muri | una folata spegne la torcia in mano (per riaccenderla serve l'acciarino, che si sente). Si riarma | aggira la piastra | 1 |
+| Gabbia | piastra, catene e punte di sbarre che spuntano dal soffitto | la gabbia crolla con un fracasso che si sente lontano: chi è dentro resta chiuso 15 s | aggira la piastra, o esci in tempo | 2 |
+| Botola | quadrato di assi chiare nel pavimento di pietra di una stanza | scricchiola, poi si spalanca: si cade in una fossa (1 danno) e la torcia sfugge di mano. Si risale solo con una **corda** (E), che resta appesa per chi cade dopo; senza, da soli si muore dopo 10 s | non calpestarla | 2 |
+| Porta a dardi | quattro fori scuri nell'anta, all'altezza del petto | aprendola: clic, e i dardi partono verso chi apre (3 danni) | aprila accovacciato: passano sopra la testa | 2 |
+| Porta coi campanelli | campanelli sopra il vano | in piedi, aprirla o chiuderla fa un gran rumore | accovacciato li tieni fermi con la mano | 2 |
+| Masso | filo teso alla caviglia in un corridoio; poco più in là, nel soffitto, un buco tondo con la pancia di un masso | il filo si spezza, un boato, e il masso cade e rotola lungo il corridoio schiacciando chiunque trovi (poco meno veloce di chi corre) | scavalca il filo accovacciato; se scatta, corri in una stanza o in un corridoio laterale | 3 |
+
+**Corda** (una per piano, dal piano 2): l'unico modo per risalire da una fossa.
 Il menu (Tab, I, J, Esc) è un prototipo con quattro schede: scheda del giocatore, inventario, diario (si scrive da solo: piani, oggetti raccolti e lasciati, torce accese e consumate) e impostazioni. Col menu aperto il personaggio sta fermo ma il tempo scorre: in coop non si può mettere in pausa.
 Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si vede solo quando la luce li raggiunge o quando ci passi accanto.
 
@@ -51,8 +64,9 @@ Gli oggetti a terra hanno un'aura (bordo luminoso e alone sul pavimento) che si 
 scenes/            scene (.tscn)
 scripts/
   autoload/        Game (stato, comandi), NoiseBus (eventi rumore), Settings (impostazioni salvate)
-  dungeon/         generatore (solo dati), costruttore 3D, mappa dei passaggi per i nemici
+  dungeon/         generatore (solo dati), disposizione delle trappole (solo dati), costruttore 3D, mappa dei passaggi per i nemici
   enemies/         il Cieco: corpo (blind.gd) e cervello a stati (blind_brain.gd, solo dati)
+  traps/           trappole sul pavimento: base comune (trap.gd) e una scena per tipo
   voxel/           file .vox di MagicaVoxel e loro conversione in mesh
   player/          movimento, input separato, torcia
   items/           catalogo oggetti, inventario (solo dati), oggetti a terra
@@ -81,6 +95,7 @@ godot --headless -s res://tests/test_health.gd
 godot --headless -s res://tests/test_journal.gd
 godot --headless -s res://tests/test_settings.gd
 godot --headless -s res://tests/test_blind.gd
+godot --headless -s res://tests/test_traps.gd
 ```
 
 ## Build per i tester
@@ -97,7 +112,7 @@ Nel nodo `Main` imposta `fixed_seed` al seed della segnalazione: il gioco rigene
 ## Crediti
 
 - Tutti i modelli sono voxel creati per il gioco (`assets/voxels/`, generati da `tools/make_voxels.gd`): nessun asset di terzi.
-- Suoni: pacchetti [RPG Audio](https://kenney.nl/assets/rpg-audio), [Impact Sounds](https://kenney.nl/assets/impact-sounds) e [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) di [Kenney](https://kenney.nl), licenza CC0 (`assets/audio/LICENSE-kenney.txt`). Ogni file ha il nome del suo ruolo nel gioco (es. `blind_step_1.ogg`, `door_open.ogg`): per cambiare un suono basta sovrascrivere il file. Respiro e verso del Cieco sono provvisori (Kenney non ha versi di creature).
+- Suoni: pacchetti [RPG Audio](https://kenney.nl/assets/rpg-audio), [Impact Sounds](https://kenney.nl/assets/impact-sounds), [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) di [Kenney](https://kenney.nl), licenza CC0 (`assets/audio/LICENSE-kenney.txt`). Ogni file ha il nome del suo ruolo nel gioco (es. `blind_step_1.ogg`, `door_open.ogg`): per cambiare un suono basta sovrascrivere il file. Respiro e verso del Cieco sono provvisori (Kenney non ha versi di creature).
 
 ## Grafica voxel
 

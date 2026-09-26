@@ -45,7 +45,7 @@ func _load_floor() -> void:
 	player.velocity = Vector3.ZERO
 	hud.minimap.start_floor(dungeon.gen)  # ogni piano si esplora da zero
 	player.note("Entri nel dungeon." if Game.floor_number == 1 else "Scendi al piano %d." % Game.floor_number)
-	print("Piano %d (seed partita %d)\n%s" % [Game.floor_number, Game.run_seed, dungeon.gen.to_ascii()])
+	print("Piano %d (seed partita %d)\n%s" % [Game.floor_number, Game.run_seed, dungeon.traps.to_ascii()])
 
 
 ## La tagliola posata dal giocatore: figlia del dungeon, così sparisce quando si cambia piano.

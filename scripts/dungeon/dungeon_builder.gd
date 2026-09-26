@@ -45,11 +45,26 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var blind_max := 4
 @export var enemy_min_distance := 12     ## passi minimi tra l'ingresso e la stanza di un nemico
 
+@export_group("Trappole")
+@export var traps_first_floor := 2      ## trappole sul pavimento al piano 1 (solo frecce e soffio)
+@export var traps_extra_per_floor := 1  ## quante in più a ogni piano
+@export var traps_max := 8
+@export var door_trap_chance := 0.3     ## probabilità di una porta a dardi o coi campanelli (dal piano 2)
+@export var ropes_per_floor := 1        ## corde a terra, dal piano delle prime botole
+
 const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const BLIND_SCENE := preload("res://scenes/blind.tscn")
 const GROUND_TORCH_SCENE := preload("res://scenes/ground_torch.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
+## Una scena per ogni tipo di trappola sul pavimento (vedi TrapLayout).
+const TRAP_SCENES: Dictionary[StringName, PackedScene] = {
+	TrapLayout.SPIKES: preload("res://scenes/spike_trap.tscn"),
+	TrapLayout.TRAPDOOR: preload("res://scenes/trapdoor.tscn"),
+	TrapLayout.BOULDER: preload("res://scenes/boulder_trap.tscn"),
+	TrapLayout.VENT: preload("res://scenes/vent_trap.tscn"),
+	TrapLayout.CAGE: preload("res://scenes/cage_trap.tscn"),
+}
 const FLOOR_T := 0.25  ## spessore dei modelli di pavimento e soffitto
 ## Il pilastro è un filo più largo del modello: il fusto (±0,25 m) cadrebbe proprio sul confine tra due strati
 ## dei muri, e nelle fughe incassate le due facce sfarfallerebbero (z-fighting). 2% = 5 mm, non si nota.
@@ -71,7 +86,10 @@ const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), 
 
 var gen: DungeonGenerator
 var nav: DungeonNav  ## mappa dei passaggi per i nemici: le porte la aggiornano quando si aprono o chiudono
+var traps: TrapLayout  ## dove stanno le trappole del piano
 var _exit_armed := false
+var _floor_models: Dictionary[Vector2i, StringName] = {}    ## pavimenti speciali delle trappole (&"" = nessuno: buco)
+var _ceiling_models: Dictionary[Vector2i, StringName] = {}  ## soffitti speciali (il buco del masso)
 
 
 func build(seed_value: int, floor_number: int = 1) -> void:
@@ -93,6 +111,14 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 	gen.place_decorations()
 	gen.place_enemies(blinds_for_floor(floor_number))
+	traps = TrapLayout.new()
+	traps.first_floor_count = traps_first_floor
+	traps.extra_per_floor = traps_extra_per_floor
+	traps.max_count = traps_max
+	traps.door_trap_chance = door_trap_chance
+	traps.ropes_per_floor = ropes_per_floor
+	traps.plan(gen, seed_value, floor_number)
+	_plan_trap_pieces()
 	nav = DungeonNav.new(gen)
 	nav.cell_size = CELL
 
@@ -120,8 +146,11 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	_add_exit()
 	for c in gen.items:
 		spawn_pickup(gen.items[c], cell_to_world(c))
+	for c in traps.ropes:
+		spawn_pickup(Items.ROPE, cell_to_world(c))
 	_add_doors()
 	_add_wall_torches()
+	_add_traps()
 	_add_blinds(seed_value)
 
 
@@ -182,8 +211,10 @@ func _add_floor_pieces(floors: Array[Vector2i], rng: RandomNumberGenerator, piec
 			model = _pick(ROOM_FLOOR_VARIANTS, rng)
 		else:
 			model = _pick(ROOM_FLOORS, rng)
-		_append_piece(pieces, model, Transform3D(rot, cell_to_world(c) - Vector3(0, FLOOR_T, 0)))
-		_append_piece(pieces, &"ceiling", Transform3D(Basis(), cell_to_world(c) + Vector3(0, WALL_H, 0)))
+		model = _floor_models.get(c, model)  # dopo la scelta casuale: le trappole non cambiano le altre celle
+		if model != &"":
+			_append_piece(pieces, model, Transform3D(rot, cell_to_world(c) - Vector3(0, FLOOR_T, 0)))
+		_append_piece(pieces, _ceiling_models.get(c, &"ceiling"), Transform3D(Basis(), cell_to_world(c) + Vector3(0, WALL_H, 0)))
 
 
 func _pick(models: Array[StringName], rng: RandomNumberGenerator) -> StringName:
@@ -308,12 +339,25 @@ func _add_collision(walls: Array[Vector2i]) -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
 
-	var floor_shape := BoxShape3D.new()
-	floor_shape.size = Vector3(gen.width * CELL, 0.2, gen.height * CELL)
-	var floor_col := CollisionShape3D.new()
-	floor_col.shape = floor_shape
-	floor_col.position = Vector3((gen.width - 1) * CELL / 2.0, -0.1, (gen.height - 1) * CELL / 2.0)
-	body.add_child(floor_col)
+	# Il pavimento è una lastra unica, a strisce dove serve lasciare il buco di una botola.
+	var pits := traps.pit_cells()
+	var first_row := 0
+	for y in gen.height + 1:
+		var row_pits: Array[int] = []
+		for c in pits:
+			if c.y == y:
+				row_pits.append(c.x)
+		if y < gen.height and row_pits.is_empty():
+			continue
+		_add_floor_slab(body, Vector2i(0, first_row), Vector2i(gen.width, y))  # le righe intere finora
+		if y == gen.height:
+			break
+		row_pits.sort()
+		var x0 := 0
+		for x in row_pits + [gen.width]:
+			_add_floor_slab(body, Vector2i(x0, y), Vector2i(x, y + 1))
+			x0 = x + 1
+		first_row = y + 1
 
 	var wall_shape := BoxShape3D.new()
 	wall_shape.size = Vector3(CELL, WALL_H, CELL)
@@ -324,12 +368,69 @@ func _add_collision(walls: Array[Vector2i]) -> void:
 		body.add_child(col)
 
 
+## Collisione del pavimento sulle celle da `from` (compresa) a `to` (esclusa); niente se il rettangolo è vuoto.
+func _add_floor_slab(body: StaticBody3D, from: Vector2i, to: Vector2i) -> void:
+	if to.x <= from.x or to.y <= from.y:
+		return
+	var shape := BoxShape3D.new()
+	shape.size = Vector3((to.x - from.x) * CELL, 0.2, (to.y - from.y) * CELL)
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	col.position = Vector3((from.x + to.x - 1) * CELL / 2.0, -0.1, (from.y + to.y - 1) * CELL / 2.0)
+	body.add_child(col)
+
+
+## Pavimenti e soffitti speciali delle trappole: lastra coi fori per le frecce, niente pavimento sulle
+## botole (ci sono le ante), soffitto col buco dove aspetta il masso.
+func _plan_trap_pieces() -> void:
+	_floor_models.clear()
+	_ceiling_models.clear()
+	for t in traps.traps:
+		match t.kind:
+			TrapLayout.SPIKES:
+				_floor_models[t.cell] = &"floor_spikes"
+			TrapLayout.TRAPDOOR:
+				_floor_models[t.cell] = &""
+			TrapLayout.BOULDER:
+				_ceiling_models[t.start] = &"ceiling_hole"
+
+
+## Le trappole sul pavimento, una scena per tipo. Le botole aperte diventano muri per i nemici.
+func _add_traps() -> void:
+	for t in traps.traps:
+		var trap: Trap = TRAP_SCENES[t.kind].instantiate()
+		trap.position = cell_to_world(t.cell)
+		match t.kind:
+			TrapLayout.VENT:
+				(trap as VentTrap).axis = t.dir
+			TrapLayout.TRAPDOOR:
+				(trap as Trapdoor).exit_dir = _pit_exit(t.cell)
+				(trap as Trapdoor).opened.connect(nav.set_blocked.bind(t.cell))
+			TrapLayout.BOULDER:
+				var boulder := trap as BoulderTrap
+				boulder.position = cell_to_world(t.start)
+				boulder.dir = t.dir
+				boulder.wire = roundi((t.cell - t.start).length())
+				boulder.run = roundi((t.end - t.start).length())
+		add_child(trap)
+
+
+## Da che lato si risale da una fossa: verso una cella di pavimento libera (niente arredi né altre trappole).
+func _pit_exit(c: Vector2i) -> Vector2i:
+	for d in DIRS:
+		var n := c + d
+		if gen.is_floor(n) and not gen.decorations.has(n) and traps.trap_at(n) == null:
+			return d
+	return DIRS[0]
+
+
 ## Il pannello della porta sta lungo x: se il passaggio va lungo x lo si ruota di 90°.
 func _add_doors() -> void:
 	for c in gen.doors:
 		var door: Door = DOOR_SCENE.instantiate()
 		door.width = CELL
 		door.wall_height = WALL_H
+		door.trap = traps.door_traps.get(c, &"")
 		door.position = cell_to_world(c)
 		if gen.doors[c]:
 			door.rotation.y = PI / 2.0
