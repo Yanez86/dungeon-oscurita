@@ -98,6 +98,17 @@ func _init() -> void:
 	count += _save("boulder_rubble", _boulder_rubble())
 	count += _save("boulder_shaft", _boulder_shaft())
 	count += _save("ceiling_hole", _ceiling_hole())
+	count += _save("item_backpack", _item_backpack())
+	count += _save("item_key_gold", _item_key_gold())
+	count += _save("item_coins", _item_coins())
+	count += _save("item_gem", _item_gem())
+	count += _save("item_chalice", _item_chalice())
+	count += _save("door_leaf_gold", _door_leaf_gold())
+	count += _save("stairs_down", _stairs_down())
+	count += _save("wall_secret", _panel(_wall_secret()))
+	count += _save("lever_plate", _lever_plate())
+	count += _save("lever_handle", _lever_handle())
+	count += _save("gate_bars", _gate_bars())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -998,4 +1009,337 @@ func _ceiling_hole() -> VoxModel:
 			if Vector2(x + 0.5, z + 0.5).distance_to(Vector2(CELL / 2.0, CELL / 2.0)) < 7.4:
 				for y in FLOOR_T:
 					m.erase_voxel(Vector3i(x, y, z))
+	return m
+
+
+# --- Tesori ------------------------------------------------------------------
+# Oggetti da raccogliere (voxel piccoli, come tutti gli item_*): diventano anche le icone dell'inventario,
+# quindi forme semplici e contrasti forti. L'oro deve luccicare anche alla luce di una torcia.
+
+const LEATHER := Color(0.52, 0.30, 0.15)  ## cuoio: più caldo e rossiccio del legno
+const GOLD := Color(0.85, 0.64, 0.18)
+const RUBY := Color(0.70, 0.07, 0.12)
+
+
+## Riflesso: il colore schiarito verso il bianco (luccichio dell'oro, lampo di una gemma).
+func _shine(base: Color, amount := 0.5) -> Color:
+	return base.lerp(Color.WHITE, amount)
+
+
+## Zaino di cuoio 8 x 9 x 5, in piedi col davanti verso +z: corpo con gli spigoli smussati, patta che copre
+## la cima e ricade sul davanti, tasca frontale e due cinghie scure con le fibbie d'ottone.
+func _item_backpack() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(8, 9, 5))
+	for x in 8:
+		for y in 8:
+			if (x == 0 or x == 7) and (y == 0 or y == 7):
+				continue  # spigoli smussati
+			for z in 3:
+				m.paint(Vector3i(x, y, z), _jitter(_tone(LEATHER, -1 if z == 0 or x == 0 or x == 7 else 0), 0.3))
+	# Patta: sopra e sul davanti, più scura, con l'orlo cucito.
+	var flap := _tone(LEATHER, -2)
+	m.fill_box(Vector3i(1, 8, 0), Vector3i(6, 8, 2), flap)
+	m.fill_box(Vector3i(1, 5, 3), Vector3i(6, 7, 3), flap)
+	m.fill_box(Vector3i(1, 5, 3), Vector3i(6, 5, 3), _tone(LEATHER, -4))
+	# Tasca frontale, più chiara, con la cucitura in alto.
+	m.fill_box(Vector3i(2, 1, 3), Vector3i(5, 3, 3), _tone(LEATHER, 1))
+	m.fill_box(Vector3i(2, 3, 3), Vector3i(5, 3, 3), _tone(LEATHER, -1))
+	# Cinghie: dalla cima della patta giù fino alla tasca; le fibbie sotto l'orlo della patta.
+	for x in [2, 5]:
+		m.fill_box(Vector3i(x, 2, 4), Vector3i(x, 7, 4), _tone(LEATHER, -6))
+		m.paint(Vector3i(x, 4, 3), _tone(LEATHER, -6))
+		m.paint(Vector3i(x, 4, 4), BRASS)
+		m.paint(Vector3i(x, 3, 4), _tone(BRASS, 2))
+	return m
+
+
+## Chiave d'oro 9 x 2 x 4, coricata: occhio ad anello, fusto con un collarino, mappa a tre denti in fondo.
+## Grande e lucida, con qualche voxel più chiaro dove prende la luce.
+func _item_key_gold() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(9, 2, 4))
+	for x in 4:
+		for z in 4:
+			var corner := (x == 0 or x == 3) and (z == 0 or z == 3)
+			var hole := (x == 1 or x == 2) and (z == 1 or z == 2)
+			if corner or hole:
+				continue
+			m.paint(Vector3i(x, 0, z), _tone(GOLD, -3))
+			m.paint(Vector3i(x, 1, z), GOLD)
+	m.fill_box(Vector3i(4, 0, 1), Vector3i(8, 0, 1), _tone(GOLD, -1))  # fusto
+	m.fill_box(Vector3i(4, 0, 0), Vector3i(4, 0, 2), _tone(GOLD, -2))  # collarino
+	m.paint(Vector3i(4, 1, 1), GOLD)
+	for p in [Vector2i(6, 2), Vector2i(6, 3), Vector2i(7, 2), Vector2i(8, 2), Vector2i(8, 3)]:
+		m.paint(Vector3i(p.x, 0, p.y), GOLD)  # mappa: tre denti
+	m.paint(Vector3i(1, 1, 0), _shine(GOLD))
+	m.paint(Vector3i(0, 1, 1), _shine(GOLD, 0.3))
+	m.paint(Vector3i(6, 0, 1), _shine(GOLD, 0.3))
+	return m
+
+
+## Pila di monete: dischetti `s` x `s` senza gli angoli (tondi, per quanto può un voxel), uno per strato,
+## ognuno spostato di `shifts[i]` (x, z) da `corner`: la pila è un po' storta e si vede l'orlo di ogni moneta.
+## Strati alternati chiari e scuri; quella in cima ha l'orlo più scuro e un luccichio.
+func _coin_stack(m: VoxModel, corner: Vector3i, s: int, shifts: Array[Vector2i]) -> void:
+	for layer in shifts.size():
+		var top := layer == shifts.size() - 1
+		var at := corner + Vector3i(shifts[layer].x, layer, shifts[layer].y)
+		for x in s:
+			for z in s:
+				if (x == 0 or x == s - 1) and (z == 0 or z == s - 1):
+					continue
+				var rim := x == 0 or z == 0 or x == s - 1 or z == s - 1
+				var col := _tone(GOLD, -1 if layer % 2 == 0 else -6)
+				if top:
+					col = _tone(GOLD, -4) if rim else _tone(GOLD, 1)
+				m.paint(at + Vector3i(x, 0, z), col)
+		if top:
+			m.paint(at + Vector3i(1, 0, s - 2), _shine(GOLD, 0.45))
+
+
+## Monete d'oro 8 x 4 x 7: una pila alta e una bassa (un po' storte), una moneta coricata,
+## una in piedi di taglio e una sparsa.
+func _item_coins() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(8, 4, 7))
+	_coin_stack(m, Vector3i(0, 0, 0), 4, [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)])
+	_coin_stack(m, Vector3i(4, 0, 2), 4, [Vector2i(0, 1), Vector2i(0, 0)])
+	_coin_stack(m, Vector3i(0, 0, 4), 3, [Vector2i.ZERO])
+	for p in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(1, 2)]:
+		m.paint(Vector3i(7, p.y, p.x), _tone(GOLD, 1 if p.y == 2 else -1))  # in piedi, di taglio
+	m.paint(Vector3i(5, 0, 0), _tone(GOLD, -2))
+	return m
+
+
+## Rubino 5 x 5 x 5 a taglio di brillante, come un diamante disegnato: tavola piatta in cima, cintura larga,
+## padiglione a punta sotto. Le facce in alto sono più chiare, quelle sotto in ombra, e qualche voxel
+## schiarito fa da riflesso.
+func _item_gem() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(5, 5, 5))
+	var radius: Array[int] = [0, 1, 2, 2, 1]  # mezza larghezza di ogni strato, dal basso
+	var light: Array[int] = [-7, -6, -3, 1, 3]
+	for y in 5:
+		var r := radius[y]
+		for x in range(2 - r, 3 + r):
+			for z in range(2 - r, 3 + r):
+				var d := Vector2i(x - 2, z - 2)
+				if r == 2 and absi(d.x) == r and absi(d.y) == r:
+					continue  # cintura senza angoli: la gemma è tonda
+				var side := -signi(d.x) + signi(d.y)  # luce da sinistra e dal davanti
+				m.paint(Vector3i(x, y, z), _tone(RUBY, light[y] + side))
+	m.paint(Vector3i(1, 4, 3), _shine(RUBY, 0.6))  # riflessi sulla tavola e sulla corona
+	m.paint(Vector3i(2, 4, 2), _shine(RUBY, 0.3))
+	m.paint(Vector3i(0, 3, 2), _shine(RUBY, 0.35))
+	m.paint(Vector3i(2, 1, 3), _tone(RUBY, 1))  # luce che rimbalza dentro
+	return m
+
+
+## Calice d'oro 5 x 7 x 5: piede largo, stelo sottile con un nodo, coppa cava in cima (il fondo è scuro)
+## con tre gemmine incastonate: una davanti e una per lato.
+func _item_chalice() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(5, 7, 5))
+	for x in 5:
+		for z in 5:
+			var corner := (x == 0 or x == 4) and (z == 0 or z == 4)
+			var inner := x >= 1 and x <= 3 and z >= 1 and z <= 3
+			if not corner:
+				m.paint(Vector3i(x, 0, z), _tone(GOLD, -2 if inner else -3))  # piede
+				if not inner:
+					m.paint(Vector3i(x, 5, z), _tone(GOLD, -1))  # pareti della coppa
+					m.paint(Vector3i(x, 6, z), GOLD)
+			if inner:
+				m.paint(Vector3i(x, 4, z), _tone(GOLD, -1))  # fondo della coppa
+				m.paint(Vector3i(x, 5, z), _tone(GOLD, -8))  # dentro: ombra
+	m.paint(Vector3i(2, 1, 2), _tone(GOLD, -1))  # stelo
+	m.paint(Vector3i(2, 2, 2), _tone(GOLD, -1))
+	for d: Vector3i in [Vector3i.ZERO, Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+		m.paint(Vector3i(2, 3, 2) + d, GOLD)  # nodo
+	m.paint(Vector3i(2, 5, 4), RUBY)
+	m.paint(Vector3i(0, 5, 2), _tone(RUBY, 2))
+	m.paint(Vector3i(4, 5, 2), _tone(RUBY, 2))
+	m.paint(Vector3i(1, 6, 4), _shine(GOLD))  # riflessi sull'orlo
+	m.paint(Vector3i(0, 6, 1), _shine(GOLD, 0.3))
+	return m
+
+
+# --- Porta dorata, scala, passaggio segreto ----------------------------------
+
+const WOOD_RICH := Color(0.28, 0.14, 0.08)  ## legno scuro e pregiato della porta dorata
+
+
+## Anta dorata 8 x 17 x 3, come door_leaf (assi al centro in z = 1, rilievi sulle due facce) ma di legno
+## scuro con bordo, fasce e borchie d'oro, e una grande piastra della serratura col buco della chiave nero
+## dal lato della maniglia (il cardine è in x = 0). Il buco è incassato: si vede anche di sbieco.
+func _door_leaf_gold() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(DOOR_W, DOOR_H, 3))
+	for x in DOOR_W:
+		var plank := _tone(WOOD_RICH, [0, -1, 1, -1][x / 2])
+		for y in DOOR_H:
+			var c := _tone(plank, -2) if x % 2 == 1 and rng.randf() < 0.5 else _jitter(plank, 0.35)
+			m.paint(Vector3i(x, y, 1), c)
+	var top := DOOR_H - 1
+	for z in [0, 2]:
+		for y in DOOR_H:
+			m.paint(Vector3i(0, y, z), _tone(GOLD, -3))
+			m.paint(Vector3i(DOOR_W - 1, y, z), _tone(GOLD, -3))
+		m.fill_box(Vector3i(0, 0, z), Vector3i(DOOR_W - 1, 0, z), _tone(GOLD, -3))
+		m.fill_box(Vector3i(0, top, z), Vector3i(DOOR_W - 1, top, z), _tone(GOLD, -3))
+		for band_y in [3, 12]:
+			m.fill_box(Vector3i(0, band_y, z), Vector3i(DOOR_W - 1, band_y + 1, z), GOLD)
+			for bx in [2, DOOR_W - 3]:
+				m.paint(Vector3i(bx, band_y, z), _shine(GOLD, 0.45))  # borchie
+		for p in [Vector2i(0, 0), Vector2i(DOOR_W - 1, 0), Vector2i(0, top), Vector2i(DOOR_W - 1, top)]:
+			m.paint(Vector3i(p.x, p.y, z), _shine(GOLD, 0.3))  # borchie agli angoli
+		# Piastra della serratura: bordo più scuro, borchie agli angoli, buco della chiave al centro.
+		m.fill_box(Vector3i(4, 6, z), Vector3i(6, 10, z), _tone(GOLD, 1))
+		for p in [Vector2i(4, 6), Vector2i(6, 6), Vector2i(4, 10), Vector2i(6, 10)]:
+			m.paint(Vector3i(p.x, p.y, z), _tone(GOLD, -2))
+		m.paint(Vector3i(5, 10, z), _shine(GOLD, 0.45))
+		m.erase_voxel(Vector3i(5, 8, z))
+		m.erase_voxel(Vector3i(5, 7, z))
+	m.paint(Vector3i(5, 8, 1), HOLE)
+	m.paint(Vector3i(5, 7, 1), HOLE)
+	return m
+
+
+## Scala 16 x 14 x 16 che scende nel buio verso +z e occupa una cella. Il builder la mette con la cima
+## (y = 14) a livello del pavimento: pianerottolo in cima (z 0..1), sei gradini di pietra lavorata alti
+## 2 voxel (x 1..14) con lo spigolo scuro, in fondo solo buio. Pareti di pietra scura a filari ai lati
+## e in fondo. Più si scende più i colori si scuriscono: il buio sale dalle profondità.
+func _stairs_down() -> VoxModel:
+	var h := 14
+	var m: VoxModel = VoxModelScript.new(Vector3i(CELL, h, CELL))
+	# Pianerottolo (k = -1) e gradini (k = 0..5): blocchi pieni fino alla loro superficie.
+	for k in range(-1, 6):
+		var z0 := 2 + 2 * k if k >= 0 else 0
+		var top := 11 - 2 * k if k >= 0 else h - 1
+		var dark := -(k + 1)
+		var seam := 5 + (k + 1) % 3 * 2  # fuga tra due lastre del gradino, ogni volta in un punto diverso
+		for x in range(1, CELL - 1):
+			for z in range(z0, z0 + 2):
+				for y in top + 1:
+					var c: Color
+					var edge := z == z0 + 1
+					if y == top:
+						c = _tone(DRESSED, dark - 3) if edge else _jitter(_tone(DRESSED, dark), 0.3)
+						if x == seam and not edge:
+							c = _tone(DRESSED, dark - 2)
+					elif edge:
+						c = _jitter(_tone(DRESSED, dark - 1), 0.3)  # alzata verso il gradino sotto
+					else:
+						c = _tone(DRESSED, dark - 2)  # dentro: non si vede
+					m.paint(Vector3i(x, y, z), c)
+	m.fill_box(Vector3i(1, 0, CELL - 2), Vector3i(CELL - 2, 0, CELL - 2), HOLE)
+	# Pareti: filari di blocchi 4 x 4 (malta compresa) sfalsati, il filare in cima intero a filo del pavimento.
+	for x in CELL:
+		for z in CELL:
+			var side := x == 0 or x == CELL - 1
+			if not side and z != CELL - 1:
+				continue
+			var along := z if side else x
+			for y in h:
+				var course := (h - 1 - y) / 4
+				var run := along + (course % 2) * 2
+				var dark := -(h - 1 - y) / 3
+				var joint := (h - 1 - y) % 4 == 3 or run % 4 == 3
+				var block := (run / 4 * 5 + course * 3) % 3 - 1
+				m.paint(Vector3i(x, y, z), _tone(MORTAR, dark) if joint else _jitter(_tone(STONE_DARK, block + dark), 0.3))
+	return m
+
+
+## Muro col passaggio segreto: da lontano identico agli altri. Da vicino, con la torcia, si nota il contorno
+## di una porta (9 x 20 voxel, dal pavimento): fessure più profonde e più scure della malta, e dentro
+## mattoni un tono più chiari, a filo del muro (nessuno sporge). Il contorno segue le fughe dove può
+## (in cima un filare di malta, ai lati le fughe verticali dei filari dispari): taglia solo metà dei mattoni.
+## Coordinate di _wall(), senza fondazione.
+func _wall_secret() -> VoxModel:
+	var m := _wall()
+	var lo := 3
+	var hi := 11
+	var top := 19
+	for x in range(lo + 1, hi):
+		for y in top:
+			var p := Vector3i(x, y, WALL_FRONT)
+			if m.has_voxel(p):
+				m.paint(p, _tone(m.color_at(p), 1))
+			m.erase_voxel(p + Vector3i(0, 0, 1))
+	var slit: Array[Vector2i] = []
+	for y in top + 1:
+		slit.append(Vector2i(lo, y))
+		slit.append(Vector2i(hi, y))
+	for x in range(lo + 1, hi):
+		slit.append(Vector2i(x, top))
+	for s in slit:
+		for z in range(WALL_FRONT - 1, WALL_D):
+			m.erase_voxel(Vector3i(s.x, s.y, z))
+		m.paint(Vector3i(s.x, s.y, WALL_FRONT - 2), HOLE)
+	return m
+
+
+# --- Leve e saracinesche -----------------------------------------------------
+# I modelli "lever_*" e "gate_*" usano i voxel piccoli (6,25 cm).
+
+## Piastra della leva 8 x 12 x 2 da murare: retro contro il muro (z = 0), faccia verso +z. Ferro col bordo
+## più scuro, un rivetto per angolo, qualche macchia di ruggine, la fessura buia verticale in cui scorre
+## la leva e il perno al centro (y = 6), chiaro dentro il buio della fessura.
+func _lever_plate() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(8, 12, 2))
+	for x in 8:
+		for y in 12:
+			var slot := (x == 3 or x == 4) and y >= 2 and y <= 9
+			m.paint(Vector3i(x, y, 0), HOLE if slot else _tone(IRON, -2))
+			if slot:
+				continue
+			var edge := x == 0 or x == 7 or y == 0 or y == 11
+			var c := _tone(IRON, -1) if edge else _jitter(_tone(IRON, 3), 0.4)
+			if not edge and rng.randf() < 0.1:
+				c = _tone(RUST, rng.randi_range(-1, 0))
+			m.paint(Vector3i(x, y, 1), c)
+	for p in [Vector2i(1, 1), Vector2i(6, 1), Vector2i(1, 10), Vector2i(6, 10)]:
+		m.paint(Vector3i(p.x, p.y, 1), RIVET)
+	m.fill_box(Vector3i(3, 6, 1), Vector3i(4, 6, 1), _tone(RIVET, 2))  # perno
+	return m
+
+
+## Leva 2 x 10 x 2: asta di ferro dal perno (la base, y = 0) in su, impugnatura di legno negli ultimi
+## 3 voxel e pomello più scuro in punta. Il codice la ruota attorno all'asse x, alla base.
+func _lever_handle() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(2, 10, 2))
+	for y in 10:
+		for x in 2:
+			for z in 2:
+				var c: Color
+				if y == 9:
+					c = _tone(WOOD, -3)  # pomello
+				elif y >= 7:
+					c = _tone(WOOD_LIGHT, -((x + z + y) % 2))
+				elif y == 0:
+					c = RIVET  # collare sul perno
+				else:
+					c = _jitter(_tone(RIVET, -3), 0.3)  # più chiara della piastra: si stacca
+				m.paint(Vector3i(x, y, z), c)
+	return m
+
+
+## Saracinesca 16 x 34 x 2 (1 x 2,125 m: riempie il vano della porta): sbarre verticali di ferro ogni 3 voxel
+## con la punta chiara in basso, tre traverse (in basso, a metà, in cima) chiodate dove incrociano le sbarre,
+## qualche macchia di ruggine. Tra le sbarre ci si vede attraverso.
+func _gate_bars() -> VoxModel:
+	var w := CELL
+	var h := 34
+	var m: VoxModel = VoxModelScript.new(Vector3i(w, h, 2))
+	var rails: Array[int] = [3, h / 2 - 1, h - 2]  # riga più bassa di ogni traversa (alta 2)
+	for x in w:
+		var bar := x % 3 == 0
+		for y in h:
+			var rail := false
+			for r in rails:
+				rail = rail or (y >= r and y <= r + 1)
+			if not (bar or rail):
+				continue
+			for z in 2:
+				var c := _jitter(IRON, 0.4) if rng.randf() < 0.93 else _tone(RUST, rng.randi_range(-1, 0))
+				if bar and y == 0:
+					c = RIVET  # punta
+				elif bar and rail and y in rails:
+					c = _tone(RIVET, -1)  # chiodo
+				m.paint(Vector3i(x, y, z), c)
 	return m

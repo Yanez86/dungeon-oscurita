@@ -7,7 +7,7 @@ extends RefCounted
 const DIR := "res://assets/voxels/"
 const VOXEL_SIZE := 0.125  ## metri per voxel: una cella da 2 m è larga 16 voxel
 const ITEM_VOXEL_SIZE := 0.0625  ## oggetti piccoli (modelli "item_*"): voxel da 6,25 cm, altrimenti sarebbero due blocchetti
-const SMALL_PREFIXES: Array[String] = ["item_", "trap_", "enemy_"]  ## modelli con i voxel da 6,25 cm
+const SMALL_PREFIXES: Array[String] = ["item_", "trap_", "enemy_", "lever_", "gate_"]  ## modelli con i voxel da 6,25 cm
 
 static var _meshes: Dictionary[StringName, Mesh] = {}
 static var _material: StandardMaterial3D
@@ -38,8 +38,9 @@ static func instance(model: StringName) -> MeshInstance3D:
 	return mi
 
 
-## Lato di un voxel del modello: gli oggetti che si raccolgono ("item_*"), le trappole piazzate ("trap_*")
-## e i nemici ("enemy_*") hanno voxel più piccoli, per avere più dettagli.
+## Lato di un voxel del modello: gli oggetti che si raccolgono ("item_*"), le trappole piazzate ("trap_*"),
+## i nemici ("enemy_*"), le leve ("lever_*") e le saracinesche ("gate_*") hanno voxel più piccoli,
+## per avere più dettagli.
 static func voxel_size(model: StringName) -> float:
 	for prefix: String in SMALL_PREFIXES:
 		if String(model).begins_with(prefix):

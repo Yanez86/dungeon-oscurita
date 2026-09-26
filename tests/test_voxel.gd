@@ -78,17 +78,42 @@ func _test_assets() -> void:
 		"item_shield": Vector3i(9, 2, 9), "item_shield_cracked": Vector3i(9, 2, 9),
 		"item_bear_trap": Vector3i(9, 4, 5), "trap_bear_open": Vector3i(9, 2, 9),
 		"enemy_blind": Vector3i(12, 28, 8),
+		"item_backpack": Vector3i(8, 9, 5), "item_key_gold": Vector3i(9, 2, 4), "item_coins": Vector3i(8, 4, 7),
+		"item_gem": Vector3i(5, 5, 5), "item_chalice": Vector3i(5, 7, 5),
+		"door_leaf_gold": Vector3i(8, 17, 3), "stairs_down": Vector3i(16, 14, 16), "wall_secret": Vector3i(16, 26, 8),
+		"lever_plate": Vector3i(8, 12, 2), "lever_handle": Vector3i(2, 10, 2), "gate_bars": Vector3i(16, 34, 2),
 	}
 	for model in expected:
 		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel
 		_check(m != null and m.size == expected[model], "modello %s con misure %s" % [model, expected[model]])
+	for model in ["lever_plate", "gate_bars", "item_gem"]:
+		_check(is_equal_approx(Voxels.voxel_size(model), Voxels.ITEM_VOXEL_SIZE), "%s usa i voxel piccoli" % model)
+	_check(is_equal_approx(Voxels.voxel_size("stairs_down"), Voxels.VOXEL_SIZE), "stairs_down usa i voxel normali")
+	_test_stairs_profile()
+
+
+## La scala scende verso +z: pianerottolo a filo del pavimento (14 voxel), sei gradini alti 2,
+## in fondo il buio a y = 0, parete di fondo alta quanto il pianerottolo.
+func _test_stairs_profile() -> void:
+	var m := VoxModelScript.load_file("res://assets/voxels/stairs_down.vox") as VoxModel
+	if m == null:
+		return
+	var expected: Array[int] = [14, 14, 12, 12, 10, 10, 8, 8, 6, 6, 4, 4, 2, 2, 1, 14]
+	var ok := true
+	for z in 16:
+		var h := 0
+		for y in m.size.y:
+			if m.has_voxel(Vector3i(7, y, z)):
+				h = y + 1
+		ok = ok and h == expected[z]
+	_check(ok, "stairs_down: gradini alle altezze giuste")
 
 
 ## Negli angoli sporgenti i pannelli si incrociano: nelle 2 colonne di testa, dietro lo strato della malta (z = 2)
 ## non deve esserci niente, altrimenti la testata sfarfalla sulla faccia dell'altro muro.
 ## (Dietro il buco di un mattone caduto gli strati restano, apposta.)
 func _test_wall_ends_shallow() -> void:
-	for model in ["wall_a", "wall_b", "wall_c", "wall_cracked", "wall_shelves"]:
+	for model in ["wall_a", "wall_b", "wall_c", "wall_cracked", "wall_shelves", "wall_secret"]:
 		var m := VoxModelScript.load_file("res://assets/voxels/%s.vox" % model) as VoxModel
 		var deep := 0
 		for y in m.size.y:
