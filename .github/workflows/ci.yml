@@ -51,6 +51,9 @@ jobs:
       - name: Test del Cieco
         run: ./godot --headless -s res://tests/test_blind.gd
 
+      - name: Test delle trappole
+        run: ./godot --headless -s res://tests/test_traps.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log
