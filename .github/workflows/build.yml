@@ -14,7 +14,11 @@ env:
   ITCH_GAME: ${{ vars.ITCH_GAME }}               # es. "tuonome/dungeon-oscurita"
 
 jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +34,18 @@ jobs:
           mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
 
-      - name: Importa e testa
+      - name: Leggi la versione
         run: |
-          ./godot --headless --import
-          ./godot --headless -s res://tests/test_generator.gd
+          VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          # Tag diverso da project.godot = hai dimenticato di aggiornare la versione
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+            echo "::error::Il tag $GITHUB_REF_NAME non corrisponde a config/version=$VERSION in project.godot"
+            exit 1
+          fi
+
+      - name: Importa il progetto
+        run: ./godot --headless --import
 
       - name: Esporta
         run: |
@@ -56,5 +68,5 @@ jobs:
         run: |
           curl -sL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip -q butler.zip && chmod +x butler
-          ./butler push build/windows "$ITCH_GAME:windows" --userversion "$GITHUB_REF_NAME"
-          ./butler push build/linux "$ITCH_GAME:linux" --userversion "$GITHUB_REF_NAME"
+          ./butler push build/windows "$ITCH_GAME:windows" --userversion "$VERSION"
+          ./butler push build/linux "$ITCH_GAME:linux" --userversion "$VERSION"

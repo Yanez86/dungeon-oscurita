@@ -1,10 +1,12 @@
 # Test automatici a ogni push e pull request.
+# Li riusa anche la build (workflow_call), così una versione rotta non parte.
 name: Test
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 env:
   GODOT_VERSION: 4.7.2
