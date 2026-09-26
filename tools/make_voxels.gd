@@ -74,6 +74,11 @@ func _init() -> void:
 	count += _save("wall_torch", _wall_torch())
 	count += _save("item_torch", _item_torch())
 	count += _save("item_flint", _item_flint())
+	count += _save("item_shield", _item_shield(false))
+	count += _save("item_shield_cracked", _item_shield(true))
+	count += _save("item_bear_trap", _bear_trap_closed())
+	count += _save("trap_bear_open", _bear_trap_open())
+	count += _save("enemy_blind", _blind())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -574,4 +579,127 @@ func _item_flint() -> VoxModel:
 			if not (x == 3 and z == 2):
 				m.paint(Vector3i(x, 1, z), _jitter(FLINT_STONE, 0.5))
 	m.paint(Vector3i(2, 1, 1), _tone(FLINT_STONE, 3))  # scheggia chiara
+	return m
+
+
+## Scudo rotondo 9 x 2 x 9, coricato come quando è a terra: assi di legno, bordo di ferro, umbone al centro.
+## `cracked`: una crepa lo attraversa e al bordo manca un pezzo (ha già parato un colpo).
+func _item_shield(cracked: bool) -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(9, 2, 9))
+	var center := Vector2(4.0, 4.0)
+	for x in 9:
+		for z in 9:
+			var d := Vector2(x, z).distance_to(center)
+			if d > 4.6:
+				continue
+			var c := IRON if d > 3.6 else _jitter(_tone(WOOD_LIGHT, [0, -1, -2][x % 3]), 0.25)
+			m.paint(Vector3i(x, 0, z), c)
+	m.fill_box(Vector3i(3, 1, 3), Vector3i(5, 1, 5), IRON)  # umbone
+	m.paint(Vector3i(4, 1, 4), RIVET)
+	for p in [Vector2i(4, 1), Vector2i(4, 7), Vector2i(1, 4), Vector2i(7, 4)]:
+		m.paint(Vector3i(p.x, 0, p.y), RIVET)  # chiodi delle assi
+	if cracked:
+		for i in 5:  # crepa diagonale dal bordo all'umbone
+			m.erase_voxel(Vector3i(7 - i, 0, 1 + i))
+		for p in [Vector2i(8, 3), Vector2i(8, 4), Vector2i(7, 2)]:
+			m.erase_voxel(Vector3i(p.x, 0, p.y))  # pezzo di bordo saltato
+		m.paint(Vector3i(5, 1, 3), _tone(IRON, 2))  # umbone ammaccato
+	return m
+
+
+const RUST := Color(0.42, 0.25, 0.15)
+
+## Tagliola chiusa 9 x 4 x 5: le due ganasce ad arco si toccano in alto, i denti incastrati.
+## È il modello in inventario, a terra da raccogliere e dopo lo scatto.
+func _bear_trap_closed() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(9, 4, 5))
+	m.fill_box(Vector3i(0, 0, 2), Vector3i(8, 0, 2), IRON)  # molla
+	m.fill_box(Vector3i(3, 0, 1), Vector3i(5, 0, 3), _tone(RUST, -1))  # piastra
+	var arc: Array[Vector2i] = [Vector2i(1, 1), Vector2i(2, 2), Vector2i(3, 3), Vector2i(4, 3),
+		Vector2i(5, 3), Vector2i(6, 2), Vector2i(7, 1)]
+	for z in [1, 3]:
+		for p in arc:
+			m.paint(Vector3i(p.x, p.y, z), _jitter(IRON, 0.4))
+	for x in [2, 4, 6]:
+		m.paint(Vector3i(x, 3, 2), RIVET)  # denti incastrati
+	m.paint(Vector3i(0, 0, 1), RUST)
+	m.paint(Vector3i(8, 0, 3), RUST)
+	return m
+
+
+## Tagliola armata 9 x 2 x 9, coricata: le ganasce aperte formano un anello di denti rivolti in su,
+## al centro la piastra che la fa scattare.
+func _bear_trap_open() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(9, 2, 9))
+	var center := Vector2(4.0, 4.0)
+	for x in 9:
+		for z in 9:
+			var d := Vector2(x, z).distance_to(center)
+			if d >= 3.4 and d <= 4.6:
+				m.paint(Vector3i(x, 0, z), _jitter(IRON, 0.4))
+				if (x + z) % 2 == 0 and d < 4.1:
+					m.paint(Vector3i(x, 1, z), RIVET)  # denti
+	m.fill_box(Vector3i(3, 0, 3), Vector3i(5, 0, 5), _tone(RUST, -1))
+	m.paint(Vector3i(4, 0, 4), RUST)
+	m.fill_box(Vector3i(0, 0, 4), Vector3i(2, 0, 4), IRON)  # molle ai lati, sotto le cerniere
+	m.fill_box(Vector3i(6, 0, 4), Vector3i(8, 0, 4), IRON)
+	return m
+
+
+# --- Nemici ------------------------------------------------------------------
+# I modelli "enemy_*" usano i voxel piccoli degli oggetti (6,25 cm): servono i dettagli.
+
+const SKIN := Color(0.70, 0.66, 0.60)
+const RAG := Color(0.24, 0.20, 0.16)
+const MOUTH := Color(0.22, 0.05, 0.05)
+const TEETH := Color(0.84, 0.80, 0.68)
+const CLAW := Color(0.14, 0.12, 0.11)
+
+## Il Cieco 12 x 28 x 8 (0,75 x 1,75 x 0,5 m), guarda verso +z: magro, pallido, curvo in avanti,
+## braccia lunghe fino alle ginocchia con artigli scuri. Niente occhi: solo una bocca piena di denti.
+func _blind() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(12, 28, 8))
+	# Gambe sottili e piedi lunghi.
+	for x in [3, 4, 7, 8]:
+		m.fill_box(Vector3i(x, 1, 3), Vector3i(x, 10, 4), _jitter(SKIN, 0.3))
+	for x0 in [3, 7]:
+		m.fill_box(Vector3i(x0, 0, 3), Vector3i(x0 + 1, 0, 6), _tone(SKIN, -2))
+		m.paint(Vector3i(x0, 0, 7), CLAW)
+		m.paint(Vector3i(x0 + 1, 0, 7), CLAW)
+	# Straccio ai fianchi.
+	m.fill_box(Vector3i(3, 10, 2), Vector3i(8, 12, 5), _jitter(RAG, 0.4))
+	m.paint(Vector3i(4, 9, 5), RAG)
+	m.paint(Vector3i(7, 9, 2), RAG)
+	# Busto: stretto in basso, spalle larghe e spostate in avanti (la gobba).
+	for y in range(13, 21):
+		var fwd := 0 if y < 17 else 1
+		var half := 3 if y < 19 else 4
+		m.fill_box(Vector3i(6 - half, y, 2 + fwd), Vector3i(5 + half, y, 5 + fwd), _jitter(SKIN, 0.35))
+	for y in [14, 16, 18]:
+		m.fill_box(Vector3i(4, y, 5 + int(y >= 17)), Vector3i(7, y, 5 + int(y >= 17)), _tone(SKIN, -3))  # costole
+	m.fill_box(Vector3i(4, 17, 2), Vector3i(7, 20, 2), _tone(SKIN, 1))  # la gobba sporge dietro
+	# Collo e testa protesi in avanti.
+	m.fill_box(Vector3i(5, 21, 4), Vector3i(6, 21, 6), SKIN)
+	m.fill_box(Vector3i(4, 22, 3), Vector3i(7, 26, 7), _jitter(SKIN, 0.25))
+	m.fill_box(Vector3i(5, 27, 3), Vector3i(6, 27, 6), _tone(SKIN, -1))
+	m.erase_voxel(Vector3i(4, 26, 7))  # testa arrotondata davanti
+	m.erase_voxel(Vector3i(7, 26, 7))
+	m.paint(Vector3i(4, 25, 7), _tone(SKIN, -2))  # dove dovrebbero esserci gli occhi, pelle liscia
+	m.paint(Vector3i(7, 25, 7), _tone(SKIN, -2))
+	# Ghigno: una fila di denti sopra la bocca spalancata, due zanne agli angoli.
+	m.fill_box(Vector3i(4, 23, 7), Vector3i(7, 23, 7), TEETH)
+	m.fill_box(Vector3i(5, 22, 7), Vector3i(6, 22, 7), MOUTH)
+	m.paint(Vector3i(4, 22, 7), _tone(TEETH, -1))
+	m.paint(Vector3i(7, 22, 7), _tone(TEETH, -1))
+	m.paint(Vector3i(5, 22, 6), MOUTH)
+	m.paint(Vector3i(6, 22, 6), MOUTH)
+	# Braccia lunghe, mani con artigli in avanti.
+	for x in [1, 10]:
+		m.fill_box(Vector3i(x, 7, 4), Vector3i(x, 19, 4), _jitter(SKIN, 0.3))
+		m.paint(Vector3i(x, 19, 5), SKIN)  # spalla
+	for x0 in [0, 10]:
+		m.fill_box(Vector3i(x0, 4, 4), Vector3i(x0 + 1, 6, 5), _tone(SKIN, -1))
+		for x in [x0, x0 + 1]:
+			m.paint(Vector3i(x, 4, 6), CLAW)
+			m.paint(Vector3i(x, 3, 6), CLAW)
 	return m

@@ -1,14 +1,16 @@
 extends Node
 ## Screenshot di controllo dei modelli voxel (serve la grafica: niente --headless).
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
-## Salva gallery.png (muri, pavimenti, porta), props.png (arredi e torcia), room.png (stanza d'ingresso), door.png (una porta), decoration.png (un arredo),
+## Salva gallery.png (muri, pavimenti, porta), props.png (arredi, oggetti e trappole), enemy.png (il Cieco),
+## room.png (stanza d'ingresso), door.png (una porta), decoration.png (un arredo),
 ## pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
 	&"ceiling", &"wall_a", &"wall_cracked", &"wall_shelves", &"pillar", &"door_frame", &"door_leaf"]
 const PROPS: Array[StringName] = [&"barrel_small", &"barrel_large", &"barrel_stack", &"keg", &"crate_small", &"crate_large",
 	&"crate_decorated", &"crates_stacked", &"trunk_small_a", &"trunk_small_b", &"trunk_medium_a", &"trunk_medium_b",
-	&"candle", &"candle_triple", &"candle_melted", &"wall_torch", &"item_torch", &"item_flint"]
+	&"candle", &"candle_triple", &"candle_melted", &"wall_torch", &"item_torch", &"item_flint",
+	&"item_shield", &"item_shield_cracked", &"item_bear_trap", &"trap_bear_open"]
 
 var _out := "user://"
 var _seed := 12345
@@ -37,6 +39,7 @@ func _run() -> void:
 
 	await _gallery(cam, MODELS, MODELS.size(), "gallery.png")
 	await _gallery(cam, PROPS, 8, "props.png")
+	await _portrait(cam, &"enemy_blind", "enemy.png")
 
 	# Dungeon: la stanza d'ingresso e una porta, illuminate da una "torcia" sulla camera.
 	var dungeon := DungeonBuilder.new()
@@ -134,3 +137,20 @@ func _gallery(cam: Camera3D, models: Array[StringName], per_row: int, file: Stri
 	cam.fov = 60
 	await _shot(file)
 	gallery.queue_free()
+
+
+## Un modello da solo, visto di tre quarti da davanti (i nemici guardano verso +z), sotto una luce direzionale.
+func _portrait(cam: Camera3D, model: StringName, file: String) -> void:
+	var stage := Node3D.new()
+	add_child(stage)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-40, 30, 0)
+	sun.shadow_enabled = true
+	stage.add_child(sun)
+	var mi := Voxels.instance(model)
+	stage.add_child(mi)
+	var h := mi.mesh.get_aabb().size.y
+	cam.position = Vector3(h * 0.5, h * 0.75, h * 1.1)
+	cam.look_at(Vector3(0, h * 0.5, 0))
+	await _shot(file)
+	stage.queue_free()
