@@ -19,6 +19,11 @@ extends CharacterBody3D
 @export var max_health := 10  ## pochi punti: il combattimento è raro e letale (GDD)
 @export var death_fall_time := 0.8  ## secondi in cui la vista crolla a terra quando si muore
 @export var death_head_height := 0.3  ## altezza della vista da morti (metri)
+@export var hurt_loudness := 0.6  ## chi viene ferito grida: i nemici lo sentono
+
+@export_group("Fossa")
+@export var climb_time := 2.5       ## secondi per risalire con la corda
+@export var climb_loudness := 0.3   ## la corda scricchiola, gli stivali raschiano la parete
 
 @export_group("Oggetti")
 @export var inventory_slots := 5
@@ -37,6 +42,8 @@ signal item_dropped(item: StringName, world_pos: Vector3)
 ## Il giocatore ha messo a terra la torcia che aveva in mano (accesa o spenta):
 ## main.gd la fa comparire nel dungeon, dove continua a bruciare.
 signal torch_dropped(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool)
+## Ha legato una corda per risalire dalla fossa: la botola la mostra appesa, per chi cade dopo.
+signal rope_hung
 
 const HEAD_STAND := 1.6
 const HEAD_CROUCH := 1.0
@@ -51,10 +58,15 @@ var journal := Journal.new()  ## diario della partita (lo mostra il menu)
 var nearby_pickup: Pickup = null  ## oggetto raccoglibile più vicino (per l'HUD)
 var nearby_door: Door = null      ## porta (aperta o chiusa) a portata di mano (per l'HUD)
 var death_cause := ""  ## chi ha tolto l'ultimo punto di energia (per la schermata di morte)
+var in_pit := false    ## caduto in una fossa (botola aperta): si esce solo con una corda (E)
+var pit_rope := false  ## nella fossa c'è già una corda appesa
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var _step_progress := 0.0
 var _death_tween: Tween
+var _climb_tween: Tween
+var _pit_exit := Vector3.ZERO   ## dove si arriva risalendo (sul bordo)
+var _pit_rope := Vector3.ZERO   ## dove pende la corda, sul fondo
 
 
 func _ready() -> void:
@@ -71,9 +83,13 @@ func _ready() -> void:
 func reset_for_run() -> void:
 	if _death_tween:
 		_death_tween.kill()
+	if _climb_tween:
+		_climb_tween.kill()
 	head.position.y = HEAD_STAND
 	head.rotation.z = 0.0
 	death_cause = ""
+	in_pit = false
+	pit_rope = false
 	health.reset()
 	journal.clear()
 	inventory.clear()
@@ -88,6 +104,92 @@ func note(text: String) -> void:
 	journal.add(Game.floor_number, text)
 
 
+## Unico ingresso dei danni (trappole, nemici): toglie energia, fa gridare (suono e rumore)
+## e ricorda la causa per il diario e la schermata di morte ("Ucciso da <cause>.").
+## Restituisce l'energia tolta davvero.
+func hurt(amount: int, cause: String) -> int:
+	if amount <= 0 or health.is_dead():
+		return 0
+	death_cause = cause  # prima del danno: se è l'ultimo, _on_died la legge già
+	var taken := health.damage(amount)
+	if taken > 0:
+		_cry_out()
+	return taken
+
+
+## Morte certa (schiacciati da un masso, nessuna via d'uscita): niente parate.
+func kill(cause: String) -> void:
+	if health.is_dead():
+		return
+	death_cause = cause
+	health.damage(health.hp)
+	_cry_out()
+
+
+func _cry_out() -> void:
+	Sfx.play_at(self, &"player_hit", head.global_position)
+	NoiseBus.emit_noise(global_position, hurt_loudness, self)
+
+
+## Accovacciati si passa sopra i fili tesi e sotto i dardi (vedi le trappole).
+func is_crouching() -> bool:
+	return input.crouch and not health.is_dead()
+
+
+## La torcia sfugge di mano (per esempio cadendo in una fossa) e resta a terra in `pos`, così com'è.
+## Falso se non se ne aveva una.
+func drop_torch(pos: Vector3) -> bool:
+	if torch.fuel <= 0.0:
+		return false
+	_put_down_torch(pos)
+	message.emit("La torcia ti sfugge di mano!")
+	return true
+
+
+## Una botola si è aperta sotto i piedi: si è sul fondo di una fossa. `rope_spot` è dove pende
+## (o penderà) la corda, sul fondo; `exit` il punto sul bordo dove si arriva risalendo.
+## `rope`: c'è già una corda appesa, lasciata da chi è caduto prima.
+func fall_into_pit(rope_spot: Vector3, exit: Vector3, rope: bool) -> void:
+	in_pit = true
+	pit_rope = rope
+	_pit_rope = rope_spot
+	_pit_exit = exit
+
+
+## E nella fossa: con una corda (già appesa o dall'inventario) si risale in `climb_time` secondi.
+## La corda legata resta appesa: chi cade dopo può usarla.
+func _climb_out() -> void:
+	if _is_climbing():
+		return
+	if not pit_rope:
+		if not inventory.remove(Items.ROPE):
+			message.emit("Senza una corda non puoi risalire.")
+			return
+		pit_rope = true
+		rope_hung.emit()
+		note("Legata una corda per risalire dalla fossa: resta appesa lì.")
+	message.emit("Ti arrampichi sulla corda…")
+	NoiseBus.emit_noise(global_position, climb_loudness, self)
+	velocity = Vector3.ZERO
+	var top := Vector3(_pit_rope.x, _pit_exit.y, _pit_rope.z)
+	_climb_tween = create_tween()
+	_climb_tween.tween_property(self, "global_position", _pit_rope, 0.4)
+	_climb_tween.tween_property(self, "global_position", top, climb_time) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_climb_tween.tween_property(self, "global_position", _pit_exit, 0.5)
+	_climb_tween.tween_callback(_on_climbed_out)
+
+
+func _on_climbed_out() -> void:
+	in_pit = false
+	pit_rope = false
+	message.emit("Sei fuori dalla fossa.")
+
+
+func _is_climbing() -> bool:
+	return _climb_tween != null and _climb_tween.is_running()
+
+
 func _on_torch_burned_out() -> void:
 	message.emit("La torcia si è consumata.")
 	note("La torcia si è consumata.")
@@ -98,6 +200,8 @@ func _on_died() -> void:
 	note("Ucciso da %s." % death_cause if death_cause != "" else "Sei morto.")
 	nearby_pickup = null
 	nearby_door = null
+	if _climb_tween:
+		_climb_tween.kill()  # si ricade giù dalla corda
 	if _death_tween:
 		_death_tween.kill()
 	_death_tween = create_tween().set_parallel().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -119,6 +223,8 @@ func _physics_process(delta: float) -> void:
 	var look := input.consume_look()
 	rotate_y(-look.x)
 	head.rotation.x = clampf(head.rotation.x - look.y, -1.4, 1.4)
+	if _is_climbing():
+		return  # la corda porta su da sola (vedi _climb_out)
 
 	_handle_items()
 
@@ -158,6 +264,8 @@ func _handle_items() -> void:
 			_pick_up()
 		elif nearby_door:
 			_use_door(nearby_door)
+		elif in_pit:
+			_climb_out()
 	if input.drop:
 		_drop_selected()
 
@@ -275,7 +383,7 @@ func _drop_position(distance: float) -> Vector3:
 	if not hit.is_empty():
 		var wall_distance := from.distance_to(hit["position"] as Vector3)
 		to = from + forward * maxf(wall_distance - 0.25, 0.0)
-	return Vector3(to.x, 0.0, to.z)
+	return Vector3(to.x, global_position.y, to.z)  # all'altezza dei piedi: anche sul fondo di una fossa
 
 
 func _find_nearby_pickup() -> Pickup:
@@ -285,6 +393,8 @@ func _find_nearby_pickup() -> Pickup:
 		var p := node as Pickup
 		if p == null or p.is_queued_for_deletion():
 			continue
+		if absf(p.global_position.y - global_position.y) > 1.0:
+			continue  # sul fondo di una fossa (o sopra, dal bordo): fuori portata
 		var d := Vector2(p.global_position.x - global_position.x, p.global_position.z - global_position.z).length()
 		if d < best_d:
 			best_d = d

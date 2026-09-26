@@ -79,6 +79,7 @@ func _init() -> void:
 	count += _save("item_bear_trap", _bear_trap_closed())
 	count += _save("trap_bear_open", _bear_trap_open())
 	count += _save("enemy_blind", _blind())
+	count += _save("item_rope", _item_rope())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -702,4 +703,31 @@ func _blind() -> VoxModel:
 		for x in [x0, x0 + 1]:
 			m.paint(Vector3i(x, 4, 6), CLAW)
 			m.paint(Vector3i(x, 3, 6), CLAW)
+	return m
+
+
+# --- Trappole ----------------------------------------------------------------
+
+const HEMP := Color(0.60, 0.48, 0.30)  ## canapa della corda
+
+## Corda arrotolata 12 x 3 x 10, coricata: due giri di spire ritorte, una legatura scura
+## e il capo libero che esce dal rotolo.
+func _item_rope() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(12, 3, 10))
+	var center := Vector2(4.5, 4.5)
+	for x in 10:
+		for z in 10:
+			var d := Vector2(x, z).distance_to(center)
+			if d < 2.6 or d > 4.6:
+				continue
+			var twist := -((x + z) % 3)  # spire ritorte: righe chiare e scure in diagonale
+			m.paint(Vector3i(x, 0, z), _tone(HEMP, twist - 1))
+			if d > 3.0 and d < 4.3:
+				m.paint(Vector3i(x, 1, z), _jitter(_tone(HEMP, twist), 0.3))
+	for y in 3:  # legatura che tiene il rotolo
+		m.paint(Vector3i(0, y, 4), _tone(HEMP, -4))
+		m.paint(Vector3i(0, y, 5), _tone(HEMP, -4))
+		m.paint(Vector3i(1, y, 4), _tone(HEMP, -3))
+	for p in [Vector2i(9, 5), Vector2i(10, 6), Vector2i(11, 6), Vector2i(11, 7)]:
+		m.paint(Vector3i(p.x, 0, p.y), _jitter(HEMP, 0.5))  # capo libero
 	return m
