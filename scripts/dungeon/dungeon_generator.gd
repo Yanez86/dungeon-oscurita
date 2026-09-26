@@ -7,14 +7,21 @@ enum Cell { WALL, FLOOR }
 
 const SIDES: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
+## Porte speciali (vedi door_kinds); le altre sono porte di legno.
+const DOOR_GOLDEN := &"golden"  ## chiude la nicchia della scala: si apre solo con la chiave d'oro
+
 var width: int
 var height: int
 var grid := PackedByteArray()
 var rooms: Array[Rect2i] = []
 var start_cell := Vector2i.ZERO
-var exit_cell := Vector2i.ZERO
+var exit_cell := Vector2i.ZERO  ## la scala che scende al piano dopo, in fondo alla nicchia dietro la porta dorata
+var exit_dir := Vector2i.ZERO   ## verso in cui si scende: dalla porta dorata alla scala
+var golden_door := Vector2i(-1, -1)  ## cella della porta dorata (-1, -1 se il piano non ha la nicchia)
+var exit_room := -1  ## indice della stanza da cui si entra nella nicchia
 var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi Items)
-var doors: Dictionary[Vector2i, bool] = {}  ## cella -> true se il passaggio va lungo x (est-ovest)
+var doors: Dictionary[Vector2i, bool] = {}  ## ogni passaggio che si chiude: cella -> true se va lungo x (est-ovest)
+var door_kinds: Dictionary[Vector2i, StringName] = {}  ## cella di una porta speciale -> DOOR_*; assente = porta di legno
 var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
 var decorations: Dictionary[Vector2i, StringName] = {}  ## cella -> tipo d'arredo (vedi DECORATION_KINDS)
 var enemies: Array[Vector2i] = []  ## celle dove nascono i nemici (per ora tutti Ciechi)
@@ -34,6 +41,7 @@ var enemy_min_distance := 12  ## passi minimi tra l'ingresso e la stanza di un n
 var shield_chance := 0.0      ## probabilità che il piano abbia uno scudo a terra
 var bear_trap_count := Vector2i.ZERO  ## tagliole a terra (min, max)
 var backpack_chance := 0.0    ## probabilità che il piano abbia uno zaino a terra
+var key_room_choices := 3     ## la chiave d'oro va in una delle stanze più lontane da ingresso e uscita
 
 var _rng := RandomNumberGenerator.new()
 
@@ -50,6 +58,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	rooms.clear()
 	items.clear()
 	doors.clear()
+	door_kinds.clear()
 	wall_torches.clear()
 	decorations.clear()
 	enemies.clear()
@@ -78,7 +87,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 		rooms.append(room)
 
 	start_cell = rooms[0].get_center()
-	exit_cell = _farthest_room_center(start_cell)
+	_carve_exit()
 	_place_doors()
 	_place_start_torches()
 	_place_wall_torches()
@@ -129,6 +138,34 @@ func _place_in_rooms(id: StringName) -> void:
 		if c != exit_cell and not items.has(c):
 			items[c] = id
 			return
+
+
+## La chiave d'oro che apre la porta dell'uscita: una per piano, in una stanza lontana sia dall'ingresso
+## sia dalla porta dorata (una a caso tra le `key_room_choices` migliori): il piano va attraversato due volte.
+## Mai nella stanza d'ingresso né in quella della nicchia. Va chiamata dopo place_items(): evita gli oggetti
+## e continua lo stesso generatore casuale.
+func place_key() -> void:
+	if golden_door.x < 0 or rooms.size() < 2:
+		return
+	var from_start := distances_from(start_cell)
+	var from_exit := distances_from(golden_door)
+	var candidates: Array[int] = []
+	for i in range(1, rooms.size()):
+		if i != exit_room or rooms.size() == 2:
+			candidates.append(i)
+	var score := func(i: int) -> int:
+		var c := rooms[i].get_center()
+		return mini(_cell_distance(from_start, c), _cell_distance(from_exit, c))
+	candidates.sort_custom(func(a: int, b: int) -> bool: return score.call(a) > score.call(b))
+	var room := rooms[candidates[_rng.randi_range(0, mini(key_room_choices, candidates.size()) - 1)]]
+	var free: Array[Vector2i] = []
+	for y in range(room.position.y, room.end.y):
+		for x in range(room.position.x, room.end.x):
+			var c := Vector2i(x, y)
+			if not items.has(c):
+				free.append(c)
+	if not free.is_empty():
+		items[free[_rng.randi_range(0, free.size() - 1)]] = Items.KEY_GOLD
 
 
 ## Barili, casse, bauli e candele contro i muri delle stanze.
@@ -220,8 +257,9 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 	return dist
 
 
-## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, C Cieco, T torcia, A acciarino, U scudo, X tagliola,
-## Z zaino, D porta, L torcia a muro.
+## Mappa in testo: # muro, . pavimento, S ingresso, E uscita (la scala), C Cieco, T torcia, A acciarino, U scudo, X tagliola,
+## Z zaino, K chiave d'oro, G porta dorata,
+## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
 	for y in height:
@@ -235,6 +273,8 @@ func to_ascii() -> String:
 			elif items.get(c) == Items.SHIELD: out += "U"
 			elif items.get(c) == Items.BEAR_TRAP: out += "X"
 			elif items.get(c) == Items.BACKPACK: out += "Z"
+			elif items.get(c) == Items.KEY_GOLD: out += "K"
+			elif door_kinds.get(c) == DOOR_GOLDEN: out += "G"
 			elif doors.has(c): out += "D"
 			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."
@@ -279,8 +319,8 @@ func _place_doors() -> void:
 	for y in range(1, height - 1):
 		for x in range(1, width - 1):
 			var c := Vector2i(x, y)
-			if not is_floor(c) or _in_any_room(c):
-				continue
+			if not is_floor(c) or _in_any_room(c) or doors.has(c):
+				continue  # le porte speciali (la dorata) sono già al loro posto
 			var along_x := is_floor(c + Vector2i.LEFT) and is_floor(c + Vector2i.RIGHT) \
 				and not is_floor(c + Vector2i.UP) and not is_floor(c + Vector2i.DOWN)
 			var along_y := is_floor(c + Vector2i.UP) and is_floor(c + Vector2i.DOWN) \
@@ -400,14 +440,60 @@ func _set_floor(c: Vector2i) -> void:
 	grid[c.y * width + c.x] = Cell.FLOOR
 
 
-func _farthest_room_center(from: Vector2i) -> Vector2i:
-	var dist := distances_from(from)
-	var best := from
-	var best_d := -1
-	for r in rooms:
-		var c := r.get_center()
-		var d := dist[c.y * width + c.x]
-		if d > best_d:
-			best_d = d
-			best = c
-	return best
+## L'uscita: dietro la stanza più lontana dall'ingresso si scava una nicchia di due celle nella roccia,
+## la porta dorata e la scala che scende. È una strozzatura come quelle delle porte (muro ai lati) e l'unica
+## via per la scala. Se la stanza più lontana non ha spazio attorno si prova la successiva; se non ce l'ha
+## nessuna (piani minuscoli) l'uscita resta al centro della più lontana, senza porta.
+func _carve_exit() -> void:
+	var dist := distances_from(start_cell)
+	var order: Array[int] = []
+	for i in range(1, rooms.size()):
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		return _cell_distance(dist, rooms[a].get_center()) > _cell_distance(dist, rooms[b].get_center()))
+	for i in order:
+		var options := _exit_options(rooms[i])
+		if options.is_empty():
+			continue
+		var pick: Array = options[_rng.randi_range(0, options.size() - 1)]
+		var door: Vector2i = pick[0]
+		exit_dir = pick[1]
+		exit_cell = door + exit_dir
+		golden_door = door
+		exit_room = i
+		_set_floor(door)
+		_set_floor(exit_cell)
+		doors[door] = exit_dir.x != 0
+		door_kinds[door] = DOOR_GOLDEN
+		return
+	exit_room = order[0] if not order.is_empty() else 0
+	exit_cell = rooms[exit_room].get_center()
+
+
+## Dove può partire la nicchia dell'uscita da una stanza: coppie [cella della porta, verso].
+## Porta e scala sono roccia piena, circondate da roccia (lontane da altri corridoi) e mai sul bordo della mappa.
+func _exit_options(room: Rect2i) -> Array:
+	var options := []
+	for dir in SIDES:
+		var side := Vector2i(dir.y, dir.x)  # lungo il lato
+		for y in range(room.position.y, room.end.y):
+			for x in range(room.position.x, room.end.x):
+				var edge := Vector2i(x, y)
+				if room.has_point(edge + dir):
+					continue  # non è sul lato `dir` della stanza
+				var door := edge + dir
+				var stairs := door + dir
+				if stairs.x < 1 or stairs.y < 1 or stairs.x > width - 2 or stairs.y > height - 2:
+					continue
+				var ok := not is_floor(door) and not is_floor(door + side) and not is_floor(door - side)
+				for dy in range(-1, 2):
+					for dx in range(-1, 2):
+						var n := stairs + Vector2i(dx, dy)
+						ok = ok and (n == door or not is_floor(n))
+				if ok:
+					options.append([door, dir])
+	return options
+
+
+func _cell_distance(dist: PackedInt32Array, c: Vector2i) -> int:
+	return dist[c.y * width + c.x]

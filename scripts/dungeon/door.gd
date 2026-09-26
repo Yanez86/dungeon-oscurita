@@ -19,6 +19,7 @@ extends Node3D
 @export var open_time := 0.6       ## secondi per spalancarsi
 @export var open_loudness := 0.45  ## il cigolio si sente lontano
 @export var close_loudness := 0.4  ## il tonfo della porta che si chiude
+@export var sound_pitch := 1.0     ## cigolio e tonfo più gravi (< 1) per le porte pesanti
 @export var clearance := 0.75      ## metri tra chi chiude e il vano (per non restare incastrati)
 
 @export_group("Trappola")
@@ -46,7 +47,11 @@ var _darts_armed := false
 func _ready() -> void:
 	add_to_group("door")
 	_darts_armed = trap == TrapLayout.DARTS
+	_build()
 
+
+## Cornice, campanelli e anta sul cardine. Le porte speciali (vedi GoldenDoor, SecretDoor) la ridefiniscono.
+func _build() -> void:
 	_build_frame()
 	if trap == TrapLayout.BELLS:
 		_build_bells()
@@ -89,9 +94,14 @@ func _add_frame_block(frame: StaticBody3D, size: Vector3, pos: Vector3) -> void:
 ## Anta ad assi con fasce di ferro (modello voxel). La mesh ha la base in y = 0: la si abbassa
 ## di mezza altezza perché il corpo fisico è centrato sull'anta.
 func _build_leaf(body: StaticBody3D) -> void:
-	var leaf := Voxels.instance(&"door_leaf_darts" if trap == TrapLayout.DARTS else &"door_leaf")
+	var leaf := Voxels.instance(_leaf_model())
 	leaf.position.y = -height / 2.0
 	body.add_child(leaf)
+
+
+## Il modello dell'anta: quella a dardi ha i fori.
+func _leaf_model() -> StringName:
+	return &"door_leaf_darts" if trap == TrapLayout.DARTS else &"door_leaf"
 
 
 ## Campanelli appesi all'architrave, sui due lati della porta.
@@ -103,9 +113,9 @@ func _build_bells() -> void:
 		add_child(bells)
 
 
-## Si apre allontanandosi da chi la spinge. Restituisce false se era già aperta.
+## Si apre allontanandosi da chi la spinge. Restituisce false se era già aperta o non si apre (vedi _unlock).
 func open(opener: Node3D) -> bool:
-	if is_open:
+	if is_open or not _unlock(opener):
 		return false
 	is_open = true
 	_collision.set_deferred("disabled", true)  # niente urti col pannello che ruota
@@ -117,7 +127,7 @@ func open(opener: Node3D) -> bool:
 		_spring_darts(signf(local.z))
 	_swing_to(angle, delay)
 	NoiseBus.emit_noise(global_position, open_loudness, opener)
-	Sfx.play_at(self, &"door_open", global_position + Vector3.UP * 1.2)
+	Sfx.play_at(self, &"door_open", global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
 	_ring_bells(opener)
 	opened.emit()
 	return true
@@ -149,9 +159,24 @@ func close(closer: Node3D) -> bool:
 	_collision.set_deferred("disabled", false)
 	_swing_to(0.0)
 	NoiseBus.emit_noise(global_position, close_loudness, closer)
-	Sfx.play_at(self, &"door_close", global_position + Vector3.UP * 1.2)
+	Sfx.play_at(self, &"door_close", global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
 	_ring_bells(closer)
 	closed.emit()
+	return true
+
+
+## Cosa suggerisce l'HUD quando il giocatore è a portata ("" = niente).
+func prompt() -> String:
+	return "E  chiudi la porta" if is_open else "E  apri la porta"
+
+
+## Vero se il giocatore la può usare con E (una porta segreta non ancora scoperta no: sembra un muro).
+func can_interact() -> bool:
+	return true
+
+
+## Prima di aprirsi: le porte speciali possono rifiutarsi (serratura, leva). Chi rifiuta avvisa lui.
+func _unlock(_opener: Node3D) -> bool:
 	return true
 
 

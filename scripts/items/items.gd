@@ -13,6 +13,7 @@ const SHIELD := &"shield"                   ## scudo: nell'inventario para 1 dan
 const SHIELD_CRACKED := &"shield_cracked"   ## scudo che ha già parato un colpo: al prossimo si rompe
 const BEAR_TRAP := &"bear_trap"             ## tagliola usa e getta: posata con Q, blocca un nemico per qualche secondo
 const BACKPACK := &"backpack"               ## zaino: messo in spalla con Q dà slot in più, per tutta la partita
+const KEY_GOLD := &"key_gold"               ## chiave d'oro: una per piano, apre la porta dorata della scala
 
 const NAMES := {
 	TORCH: "Torcia",
@@ -25,6 +26,7 @@ const NAMES := {
 	SHIELD_CRACKED: "Scudo incrinato",
 	BEAR_TRAP: "Tagliola",
 	BACKPACK: "Zaino",
+	KEY_GOLD: "Chiave d'oro",
 }
 
 const DESCRIPTIONS := {
@@ -38,6 +40,7 @@ const DESCRIPTIONS := {
 	SHIELD_CRACKED: "Lo scudo ha già parato un colpo ed è incrinato: para 1 danno ancora una volta, poi si rompe.",
 	BEAR_TRAP: "Una tagliola di ferro. Selezionala e premi Q per posarla davanti ai piedi (fa rumore). Il Cieco non la vede: ci finisce dentro e resta bloccato 3 secondi, e lo scatto si sente lontano. Si usa una volta sola.",
 	BACKPACK: "Uno zaino di cuoio. Selezionalo e premi Q per metterlo in spalla: 3 posti in più per il resto della partita. Se ne porti solo uno.",
+	KEY_GOLD: "Una grossa chiave d'oro. Apre la porta dorata che chiude la scala verso il piano di sotto: basta averla con sé e premere E sulla porta. Resta nella serratura.",
 }
 
 

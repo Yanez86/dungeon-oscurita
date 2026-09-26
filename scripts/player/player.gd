@@ -543,7 +543,7 @@ func _find_nearby_door() -> Door:
 	var best_d := pickup_range
 	for node in get_tree().get_nodes_in_group("door"):
 		var door := node as Door
-		if door == null or door.is_queued_for_deletion():
+		if door == null or door.is_queued_for_deletion() or not door.can_interact():
 			continue
 		var d := Vector2(door.global_position.x - global_position.x, door.global_position.z - global_position.z).length()
 		if d < best_d:

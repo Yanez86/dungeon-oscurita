@@ -19,7 +19,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Ctrl o C | Accovacciarsi (meno rumore) |
 | F | Spegnere la torcia (solo quella in mano: riposta continua a bruciare) |
 | Q | Usare l'oggetto selezionato. Acciarino: accende la torcia (riaccende quella in uso se è spenta, altrimenti una nuova) e la prende in mano; lo scatto si sente. Torcia accesa: la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una nuova la accende dalla sua fiamma. Tagliola: la posa davanti ai piedi (fa rumore). Zaino: lo metti in spalla, 3 posti in più |
-| E | Raccogliere l'oggetto vicino (una torcia buttata torna nell'inventario e in mano) / aprire o chiudere una porta (fa rumore) |
+| E | Raccogliere l'oggetto vicino (una torcia buttata torna nell'inventario e in mano) / aprire o chiudere una porta (fa rumore; la porta dorata solo con la chiave d'oro) |
 | 1–8 | Scegliere lo slot dell'inventario: l'oggetto selezionato è quello in mano (6–8 solo con lo zaino) |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore; il legno bruciato si può solo buttare) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
@@ -32,7 +32,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | J | Menu: diario (cosa è successo, piano per piano) |
 | Esc | Menu: impostazioni (sensibilità del mouse, volume, filtro PS1, schermo intero; si salvano da sole). Libera il mouse; se il menu è aperto lo chiude |
 
-Il cerchio blu è l'uscita: porta al piano successivo.
+**Uscita**: dietro la stanza più lontana dall'ingresso c'è una porta dorata, e dietro la porta la scala che scende al piano successivo. La porta si apre solo con la **chiave d'oro**: una per piano, in una delle stanze più lontane sia dall'ingresso sia dalla porta, quindi il piano va attraversato due volte. Basta averla nell'inventario (anche non selezionata) e premere E sulla porta: la chiave resta nella serratura e da lì la porta si apre e si chiude come le altre. Senza chiave la maniglia sbatte (un po' di rumore). Sulla mappa la porta dorata è color oro.
 Alcuni corridoi sono chiusi da porte (bloccano anche la luce) che si possono richiudere alle spalle; in certi piani ci sono torce appese ai muri, che non si consumano.
 Ogni piano inizia in una piccola stanza illuminata da torce a muro, con una torcia a terra. Si parte a mani vuote, con solo un acciarino: raccogli la torcia (E) e accendila (Q). Le altre torce vanno cercate nelle stanze e diventano più rare scendendo. L'inventario ha 5 slot (8 con lo zaino) e si conserva tra un piano e l'altro.
 Ogni torcia occupa uno slot: nuova, accesa (l'icona ha la fiamma), spenta o legno bruciato. La torcia accesa fa luce solo finché è lo slot selezionato: se prendi in mano un altro oggetto la riponi e resti al buio, ma continua a bruciare finché non si consuma. Consumata, nello slot resta il legno bruciato: non serve più e occupa posto finché non lo butti (G). In uso c'è una torcia alla volta.

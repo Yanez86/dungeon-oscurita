@@ -20,7 +20,10 @@ func _init() -> void:
 		_test_start_room(s)
 		_test_decorations(s)
 		_test_enemies(s)
+		_test_exit_niche(s)
+		_test_key(s)
 	_test_start_torch_always()
+	_test_exit_niche_always()
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -171,7 +174,7 @@ func _test_doors(s: int) -> void:
 	var none := Gen.new()
 	none.door_chance = 0.0
 	none.generate(s)
-	_check(none.doors.is_empty(), "seed %d: con probabilità 0 nessuna porta" % s)
+	_check(none.doors.keys() == [none.golden_door], "seed %d: con probabilità 0 solo la porta dorata" % s)
 
 
 func _test_wall_torches(s: int) -> void:
@@ -254,6 +257,85 @@ func _test_enemies(s: int) -> void:
 	_check(rooms_used.size() == 3, "seed %d: un nemico per stanza finché ce ne sono (%d stanze)" % [s, rooms_used.size()])
 	a.place_enemies(0)
 	_check(a.enemies.is_empty(), "seed %d: zero nemici" % s)
+
+
+## Uscita: nicchia di due celle dietro una stanza, porta dorata e poi la scala, che si raggiunge solo da lì.
+func _test_exit_niche(s: int) -> void:
+	var g := Gen.new()
+	g.generate(s)
+	var door := g.golden_door
+	_check(door.x >= 0 and g.door_kinds.get(door) == Gen.DOOR_GOLDEN, "seed %d: c'è la porta dorata" % s)
+	_check(g.exit_cell == door + g.exit_dir and g.doors.get(door) == (g.exit_dir.x != 0),
+		"seed %d: la scala è subito dietro la porta dorata" % s)
+	var side := Vector2i(g.exit_dir.y, g.exit_dir.x)
+	_check(not g.is_floor(door + side) and not g.is_floor(door - side) and g.rooms[g.exit_room].has_point(door - g.exit_dir),
+		"seed %d: la porta dorata è una strozzatura all'uscita di una stanza" % s)
+	var only_door := true
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var n := g.exit_cell + Vector2i(dx, dy)
+			only_door = only_door and (n == g.exit_cell or n == door or not g.is_floor(n))
+	_check(only_door, "seed %d: attorno alla scala solo roccia e la porta dorata" % s)
+	var open := _reachable(g, [door])
+	_check(not open.has(g.exit_cell) and open.size() == _floor_count(g) - 2,
+		"seed %d: senza la porta dorata si arriva ovunque tranne che alla scala" % s)
+
+
+func _test_exit_niche_always() -> void:
+	var missing := 0
+	for s in range(1, 301):
+		var g := Gen.new()
+		g.generate(s)
+		missing += int(g.golden_door.x < 0)
+	_check(missing == 0, "300 seed: la porta dorata c'è sempre (%d piani senza)" % missing)
+
+
+## Chiave d'oro: una sola, raggiungibile senza passare dalla porta dorata, mai nella stanza d'ingresso
+## né in quella della nicchia, lontana dall'ingresso. Gli altri oggetti non si spostano.
+func _test_key(s: int) -> void:
+	var g := Gen.new()
+	g.generate(s)
+	g.place_items(4, 1)
+	var before := g.items.duplicate()
+	g.place_key()
+	var keys := g.items.keys().filter(func(c: Vector2i) -> bool: return g.items[c] == Items.KEY_GOLD)
+	_check(keys.size() == 1, "seed %d: una chiave d'oro (%d)" % [s, keys.size()])
+	if keys.size() != 1:
+		return
+	var key: Vector2i = keys[0]
+	var ok := true
+	for c: Vector2i in before:
+		ok = ok and g.items[c] == before[c]
+	_check(ok, "seed %d: la chiave non sposta gli altri oggetti" % s)
+	_check(_reachable(g, [g.golden_door]).has(key), "seed %d: chiave raggiungibile senza la porta dorata" % s)
+	_check(not g.rooms[0].has_point(key) and not g.rooms[g.exit_room].has_point(key),
+		"seed %d: chiave fuori dalla stanza d'ingresso e da quella della nicchia" % s)
+	var dist := g.distances_from(g.start_cell)
+	_check(dist[key.y * g.width + key.x] >= 10, "seed %d: chiave lontana dall'ingresso (%d)" % [s, dist[key.y * g.width + key.x]])
+
+
+## Celle raggiungibili dall'ingresso senza attraversare `blocked`.
+func _reachable(g: Gen, blocked: Array) -> Dictionary:
+	var seen := {g.start_cell: true}
+	var queue: Array[Vector2i] = [g.start_cell]
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		for d in Gen.SIDES:
+			var n := c + d
+			if g.is_floor(n) and not seen.has(n) and not blocked.has(n):
+				seen[n] = true
+				queue.append(n)
+	return seen
+
+
+func _floor_count(g: Gen) -> int:
+	var n := 0
+	for y in g.height:
+		for x in g.width:
+			n += int(g.is_floor(Vector2i(x, y)))
+	return n
 
 
 func _check(cond: bool, label: String) -> void:

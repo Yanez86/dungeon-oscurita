@@ -74,6 +74,8 @@ func plan(gen: DungeonGenerator, seed_value: int, floor_number: int) -> void:
 
 	if floor_number >= door_trap_min_floor:
 		for c in gen.doors:
+			if gen.door_kinds.has(c):
+				continue  # solo le porte di legno: le speciali (dorata…) hanno già le loro regole
 			if not _near_start(c) and _rng.randf() < door_trap_chance:
 				door_traps[c] = DARTS if _rng.randf() < 0.5 else BELLS
 

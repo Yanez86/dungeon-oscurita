@@ -58,6 +58,10 @@ const PICKUP_SCENE := preload("res://scenes/pickup.tscn")
 const BLIND_SCENE := preload("res://scenes/blind.tscn")
 const GROUND_TORCH_SCENE := preload("res://scenes/ground_torch.tscn")
 const DOOR_SCENE := preload("res://scenes/door.tscn")
+## Porte speciali del generatore (DungeonGenerator.door_kinds): le altre sono DOOR_SCENE.
+const SPECIAL_DOOR_SCENES: Dictionary[StringName, PackedScene] = {
+	DungeonGenerator.DOOR_GOLDEN: preload("res://scenes/golden_door.tscn"),
+}
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
 ## Una scena per ogni tipo di trappola sul pavimento (vedi TrapLayout).
 const TRAP_SCENES: Dictionary[StringName, PackedScene] = {
@@ -68,6 +72,7 @@ const TRAP_SCENES: Dictionary[StringName, PackedScene] = {
 	TrapLayout.CAGE: preload("res://scenes/cage_trap.tscn"),
 }
 const FLOOR_T := 0.25  ## spessore dei modelli di pavimento e soffitto
+const STAIRS_DEPTH := 1.75  ## metri sotto il pavimento del fondo della scala (modello stairs_down, 14 voxel)
 ## Il pilastro è un filo più largo del modello: il fusto (±0,25 m) cadrebbe proprio sul confine tra due strati
 ## dei muri, e nelle fughe incassate le due facce sfarfallerebbero (z-fighting). 2% = 5 mm, non si nota.
 const PILLAR_GROW := 1.02
@@ -112,6 +117,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.backpack_chance = backpack_first_floor if floor_number == 1 else backpack_chance
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
+	gen.place_key()
 	gen.place_decorations()
 	gen.place_enemies(blinds_for_floor(floor_number))
 	traps = TrapLayout.new()
@@ -122,6 +128,7 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	traps.ropes_per_floor = ropes_per_floor
 	traps.plan(gen, seed_value, floor_number)
 	_plan_trap_pieces()
+	_floor_models[gen.exit_cell] = &""  # al posto del pavimento c'è la scala
 	nav = DungeonNav.new(gen)
 	nav.cell_size = CELL
 
@@ -342,12 +349,13 @@ func _add_collision(walls: Array[Vector2i]) -> void:
 	var body := StaticBody3D.new()
 	add_child(body)
 
-	# Il pavimento è una lastra unica, a strisce dove serve lasciare il buco di una botola.
-	var pits := traps.pit_cells()
+	# Il pavimento è una lastra unica, a strisce dove serve lasciare il buco di una botola o della scala.
+	var holes := traps.pit_cells()
+	holes.append(gen.exit_cell)  # la tromba della scala
 	var first_row := 0
 	for y in gen.height + 1:
 		var row_pits: Array[int] = []
-		for c in pits:
+		for c in holes:
 			if c.y == y:
 				row_pits.append(c.x)
 		if y < gen.height and row_pits.is_empty():
@@ -430,7 +438,7 @@ func _pit_exit(c: Vector2i) -> Vector2i:
 ## Il pannello della porta sta lungo x: se il passaggio va lungo x lo si ruota di 90°.
 func _add_doors() -> void:
 	for c in gen.doors:
-		var door: Door = DOOR_SCENE.instantiate()
+		var door: Door = SPECIAL_DOOR_SCENES.get(gen.door_kinds.get(c, &""), DOOR_SCENE).instantiate()
 		door.width = CELL
 		door.wall_height = WALL_H
 		door.trap = traps.door_traps.get(c, &"")
@@ -465,34 +473,53 @@ func _add_wall_torches() -> void:
 		add_child(t)
 
 
-## Uscita: un segnale luminoso e un'area che porta al piano successivo.
+## Uscita: la scala in fondo alla nicchia dietro la porta dorata (modello stairs_down), che scende verso
+## gen.exit_dir. Sotto i gradini c'è una rampa invisibile, con le sponde (sotto il pavimento i muri non hanno
+## collisione); a metà discesa un'area porta al piano successivo.
 func _add_exit() -> void:
-	var pos := cell_to_world(gen.exit_cell)
+	var dir := gen.exit_dir if gen.exit_dir != Vector2i.ZERO else Vector2i.DOWN
+	var root := Node3D.new()
+	root.position = cell_to_world(gen.exit_cell)
+	root.rotation.y = atan2(float(dir.x), float(dir.y))  # +z locale: verso cui si scende
+	add_child(root)
 
-	var marker := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.6
-	mesh.bottom_radius = 0.6
-	mesh.height = 0.05
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.3, 0.6, 1.0)
-	mat.emission_enabled = true
-	mat.emission = Color(0.3, 0.6, 1.0)
-	mesh.material = mat
-	marker.mesh = mesh
-	marker.position = pos + Vector3(0, 0.03, 0)
-	add_child(marker)
+	var stairs := Voxels.instance(&"stairs_down")
+	stairs.position.y = -STAIRS_DEPTH
+	root.add_child(stairs)
+
+	var body := StaticBody3D.new()
+	root.add_child(body)
+	var ramp := BoxShape3D.new()
+	ramp.size = Vector3(CELL, 0.2, Vector2(CELL, STAIRS_DEPTH).length())
+	var col := CollisionShape3D.new()
+	col.shape = ramp
+	col.rotation.x = atan2(STAIRS_DEPTH, CELL)  # ruotata così scende verso +z
+	col.position = Vector3(0, -STAIRS_DEPTH / 2.0, 0) - col.basis.y * 0.1  # la faccia di sopra sfiora i gradini
+	body.add_child(col)
+	var walls_h := STAIRS_DEPTH + 0.5
+	for side: float in [-1.0, 1.0]:
+		_add_box(body, Vector3(0.2, walls_h, CELL), Vector3(side * (CELL / 2.0 + 0.1), -walls_h / 2.0, 0))
+	_add_box(body, Vector3(CELL, walls_h, 0.2), Vector3(0, -walls_h / 2.0, CELL / 2.0 + 0.1))
 
 	var area := Area3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(CELL * 0.8, 2.0, CELL * 0.8)
+	shape.size = Vector3(CELL * 0.9, 1.5, CELL * 0.4)
+	var trigger := CollisionShape3D.new()
+	trigger.shape = shape
+	area.add_child(trigger)
+	area.position = Vector3(0, -STAIRS_DEPTH / 2.0, CELL * 0.25)
+	area.body_entered.connect(_on_exit_body_entered)
+	root.add_child(area)
+	_exit_armed = true
+
+
+func _add_box(body: StaticBody3D, size: Vector3, pos: Vector3) -> void:
+	var shape := BoxShape3D.new()
+	shape.size = size
 	var col := CollisionShape3D.new()
 	col.shape = shape
-	area.add_child(col)
-	area.position = pos + Vector3(0, 1.0, 0)
-	area.body_entered.connect(_on_exit_body_entered)
-	add_child(area)
-	_exit_armed = true
+	col.position = pos
+	body.add_child(col)
 
 
 func _on_exit_body_entered(body: Node3D) -> void:

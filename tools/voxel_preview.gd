@@ -2,8 +2,8 @@ extends Node
 ## Screenshot di controllo dei modelli voxel (serve la grafica: niente --headless).
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
 ## Salva gallery.png (muri, pavimenti, porte, scala), props.png (arredi, oggetti, tesori, leve e trappole), enemy.png (il Cieco),
-## room.png (stanza d'ingresso), door.png (una porta), decoration.png (un arredo),
-## pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
+## room.png (stanza d'ingresso), door.png (una porta), exit_door.png e exit_stairs.png (porta dorata, chiusa e aperta sulla scala),
+## decoration.png (un arredo), pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
 	&"ceiling", &"wall_a", &"wall_cracked", &"wall_shelves", &"wall_secret", &"pillar", &"door_frame", &"door_leaf",
@@ -64,6 +64,21 @@ func _run() -> void:
 		cam.position = p + axis * 2.6 + Vector3(0, 1.5, 0)
 		cam.look_at(p + Vector3(0, 1.2, 0))
 		await _shot("door.png")
+	var gd := dungeon.gen.golden_door
+	if gd.x >= 0:
+		# L'uscita: la porta dorata vista dalla sua stanza, poi aperta, con la scala che scende.
+		var back := -Vector3(dungeon.gen.exit_dir.x, 0, dungeon.gen.exit_dir.y)
+		var gp := dungeon.cell_to_world(gd)
+		cam.position = gp + back * 3.2 + Vector3(0, 1.6, 0)
+		cam.look_at(gp + Vector3(0, 1.1, 0))
+		await _shot("exit_door.png")
+		for node in get_tree().get_nodes_in_group("door"):
+			if node is GoldenDoor:
+				(node as GoldenDoor).locked = false
+				(node as Door).open(cam)
+		cam.position = gp - back * 0.6 + Vector3(0, 1.5, 0)
+		cam.look_at(dungeon.cell_to_world(dungeon.gen.exit_cell) - back * 0.5 + Vector3(0, -1.5, 0))
+		await _shot("exit_stairs.png")
 	if not dungeon.gen.decorations.is_empty():
 		# Un arredo visto dal centro della sua cella, un po' indietro.
 		var dc: Vector2i = dungeon.gen.decorations.keys()[0]
