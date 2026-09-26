@@ -32,8 +32,8 @@ assets/voxels/       tutti i modelli del gioco in .vox: muri, pavimenti, porte, 
 tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
 scripts/player/      player.gd, player_input.gd, torch.gd
 scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola)
-scripts/ui/          hud.gd (slot e messaggi), debug_overlay.gd (F3), psx_filter.gd (filtro retro, F4)
-shaders/             psx_post.gdshader (post-processing retro PS1), pickup_glow.gdshader (aura degli oggetti a terra)
+scripts/ui/          hud.gd (slot e messaggi), item_icons.gd (icone = miniature 3D dei modelli item_*), item_slot.gd, debug_overlay.gd (F3), psx_filter.gd (filtro retro, F4)
+shaders/             psx_post.gdshader (post-processing retro PS1), pickup_glow.gdshader (aura degli oggetti a terra), icon_outline.gdshader (bordino delle icone)
 tests/               test headless (generatore, inventario, voxel, mappa esplorata, torcia a terra)
 ```
 Nuovi comandi: aggiungili in `Game._setup_input()` e nella tabella del README.
