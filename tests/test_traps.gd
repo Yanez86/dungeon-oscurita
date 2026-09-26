@@ -23,8 +23,11 @@ func _init() -> void:
 ## Un piano completo come lo prepara il builder, con le trappole del piano `floor_number`.
 func _layout(s: int, floor_number: int) -> Layout:
 	var g := Gen.new()
+	g.secret_room_count = Vector2i(1, 2)
 	g.generate(s)
 	g.place_items(4, 1)
+	g.place_key()
+	g.place_treasures()
 	g.place_decorations()
 	g.place_enemies(2)
 	var l := Layout.new()
@@ -61,6 +64,7 @@ func _test_rules(s: int, floor_number: int) -> void:
 		var c := t.cell
 		ok = ok and g.is_floor(c) and not start_zone.has_point(c) and c != g.exit_cell
 		ok = ok and not g.items.has(c) and not g.decorations.has(c) and not g.doors.has(c) and not g.enemies.has(c)
+		ok = ok and not g.is_secret(c)
 		ok = ok and floor_number >= l.min_floor[t.kind]
 		for o in l.traps:
 			if o != t and absi(o.cell.x - c.x) <= 1 and absi(o.cell.y - c.y) <= 1:

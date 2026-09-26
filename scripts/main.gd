@@ -26,6 +26,7 @@ func start_run(run_seed: int) -> void:
 	Game.run_seed = run_seed
 	Game.floor_number = 1
 	Game.run_time = 0.0
+	Game.score = 0
 	Game.run_over = false
 	hud.death_screen.disappear()
 	player.reset_for_run()
@@ -35,7 +36,7 @@ func start_run(run_seed: int) -> void:
 ## Energia a zero: la partita finisce (niente rianimazione per ora, GDD). R ne avvia una nuova.
 func _on_player_died() -> void:
 	Game.run_over = true
-	hud.death_screen.appear(player.death_cause)
+	hud.death_screen.appear(player.death_cause, Treasures.carried_value(player.inventory))
 
 
 ## L'inventario e la torcia restano quelli del piano precedente.
@@ -56,7 +57,15 @@ func _spawn_bear_trap(world_pos: Vector3) -> void:
 	dungeon.add_child(trap)
 
 
+## Giù per la scala: i tesori che hai addosso sono in salvo (escono dall'inventario, il loro valore va nel
+## punteggio), poi il piano successivo.
 func _on_exit_reached() -> void:
+	Sfx.play_at(player, &"stairs_down", player.global_position)
+	var banked := Treasures.bank(player.inventory)
+	if banked > 0:
+		Game.score += banked
+		player.message.emit("Tesori in salvo: +%d punti (totale %d)." % [banked, Game.score])
+		player.note("Tesori messi in salvo: +%d punti (totale %d)." % [banked, Game.score])
 	Game.floor_number += 1
 	_load_floor.call_deferred()  # non ricostruire la fisica dentro un suo callback
 

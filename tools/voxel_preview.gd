@@ -3,6 +3,7 @@ extends Node
 ##   godot res://tools/voxel_preview.tscn -- <cartella_output> [seed]
 ## Salva gallery.png (muri, pavimenti, porte, scala), props.png (arredi, oggetti, tesori, leve e trappole), enemy.png (il Cieco),
 ## room.png (stanza d'ingresso), door.png (una porta), exit_door.png e exit_stairs.png (porta dorata, chiusa e aperta sulla scala),
+## secret.png e secret_open.png (un muro segreto, chiuso e aperto),
 ## decoration.png (un arredo), pickup.png (oggetti a terra), ground_torch.png (torcia accesa buttata a terra) e hand.png (prima persona con la torcia in mano).
 
 const MODELS: Array[StringName] = [&"floor_stone_a", &"floor_stone_cracked", &"floor_stone_moss", &"floor_dirt_a",
@@ -46,6 +47,7 @@ func _run() -> void:
 	# Dungeon: la stanza d'ingresso e una porta, illuminate da una "torcia" sulla camera.
 	var dungeon := DungeonBuilder.new()
 	add_child(dungeon)
+	dungeon.secret_rooms_first_floor = Vector2i(1, 1)  # per fotografare un muro segreto
 	dungeon.build(_seed, 1)
 	var torch := OmniLight3D.new()
 	torch.omni_range = 12.0
@@ -79,6 +81,18 @@ func _run() -> void:
 		cam.position = gp - back * 0.6 + Vector3(0, 1.5, 0)
 		cam.look_at(dungeon.cell_to_world(dungeon.gen.exit_cell) - back * 0.5 + Vector3(0, -1.5, 0))
 		await _shot("exit_stairs.png")
+	for node in get_tree().get_nodes_in_group("door"):
+		if node is SecretDoor:
+			# Un muro segreto visto dalla sua stanza: chiuso deve sembrare un muro; poi aperto, sui tesori.
+			var sd := node as SecretDoor
+			var facing := sd.global_basis.z  # verso la stanza
+			cam.position = sd.global_position + facing * 3.4 + Vector3(0, 1.6, 0)
+			cam.look_at(sd.global_position + facing + Vector3(0, 1.2, 0))
+			await _shot("secret.png")
+			sd.open(cam)
+			await get_tree().create_timer(sd.open_time + 0.3).timeout
+			await _shot("secret_open.png")
+			break
 	if not dungeon.gen.decorations.is_empty():
 		# Un arredo visto dal centro della sua cella, un po' indietro.
 		var dc: Vector2i = dungeon.gen.decorations.keys()[0]

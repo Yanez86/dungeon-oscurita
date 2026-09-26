@@ -11,6 +11,7 @@ var _torch := UiTheme.label("")
 var _spares := UiTheme.label("")
 var _shield := UiTheme.label("")
 var _space := UiTheme.label("")
+var _treasure := UiTheme.label("")
 var _noise_pips: Array[Pips] = []
 
 
@@ -33,6 +34,7 @@ func _build() -> void:
 	_row(grid, "Torce di scorta", _spares)
 	_row(grid, "Scudo", _shield)
 	_row(grid, "Inventario", _space)
+	_row(grid, "Tesori", _treasure)
 
 	box.add_child(HSeparator.new())
 	box.add_child(UiTheme.label("Rumore dei passi", UiTheme.ACCENT))
@@ -84,6 +86,10 @@ func refresh() -> void:
 		_shield.text = "Nessuno"
 	var inv := player.inventory
 	_space.text = "%d / %d posti liberi" % [inv.count(&""), inv.capacity()]
+	var carried := Treasures.carried_value(inv)
+	_treasure.text = "%d punti in salvo" % Game.score
+	if carried > 0:
+		_treasure.text += "  ·  %d addosso (contano quando scendi la scala)" % carried
 
 	var loudness: Array[float] = [player.crouch_loudness, player.walk_loudness, player.sprint_loudness]
 	for i in _noise_pips.size():

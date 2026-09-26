@@ -9,6 +9,7 @@ const SIDES: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vect
 
 ## Porte speciali (vedi door_kinds); le altre sono porte di legno.
 const DOOR_GOLDEN := &"golden"  ## chiude la nicchia della scala: si apre solo con la chiave d'oro
+const DOOR_SECRET := &"secret"  ## muro segreto: sembra un muro della stanza; dietro, una stanzetta coi tesori
 
 var width: int
 var height: int
@@ -22,6 +23,7 @@ var exit_room := -1  ## indice della stanza da cui si entra nella nicchia
 var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi Items)
 var doors: Dictionary[Vector2i, bool] = {}  ## ogni passaggio che si chiude: cella -> true se va lungo x (est-ovest)
 var door_kinds: Dictionary[Vector2i, StringName] = {}  ## cella di una porta speciale -> DOOR_*; assente = porta di legno
+var secret_rooms: Array[Rect2i] = []  ## stanzette dietro un muro segreto (non sono in `rooms`: niente nemici, arredi, trappole)
 var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
 var decorations: Dictionary[Vector2i, StringName] = {}  ## cella -> tipo d'arredo (vedi DECORATION_KINDS)
 var enemies: Array[Vector2i] = []  ## celle dove nascono i nemici (per ora tutti Ciechi)
@@ -42,6 +44,11 @@ var shield_chance := 0.0      ## probabilità che il piano abbia uno scudo a ter
 var bear_trap_count := Vector2i.ZERO  ## tagliole a terra (min, max)
 var backpack_chance := 0.0    ## probabilità che il piano abbia uno zaino a terra
 var key_room_choices := 3     ## la chiave d'oro va in una delle stanze più lontane da ingresso e uscita
+var secret_room_count := Vector2i.ZERO  ## stanze segrete (min, max)
+var secret_room_size := Vector2i(2, 3)   ## lato minimo e massimo di una stanza segreta
+var treasures_per_secret_room := Vector2i(1, 3)
+## Quanto spesso esce ogni tesoro, rispetto agli altri.
+var treasure_weights: Dictionary[StringName, float] = {Items.COINS: 5.0, Items.GEM: 3.0, Items.CHALICE: 1.0}
 
 var _rng := RandomNumberGenerator.new()
 
@@ -59,6 +66,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	items.clear()
 	doors.clear()
 	door_kinds.clear()
+	secret_rooms.clear()
 	wall_torches.clear()
 	decorations.clear()
 	enemies.clear()
@@ -88,6 +96,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 
 	start_cell = rooms[0].get_center()
 	_carve_exit()
+	_carve_secret_rooms()
 	_place_doors()
 	_place_start_torches()
 	_place_wall_torches()
@@ -258,7 +267,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 
 
 ## Mappa in testo: # muro, . pavimento, S ingresso, E uscita (la scala), C Cieco, T torcia, A acciarino, U scudo, X tagliola,
-## Z zaino, K chiave d'oro, G porta dorata,
+## Z zaino, K chiave d'oro, $ tesoro, G porta dorata, H muro segreto,
 ## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
@@ -274,7 +283,9 @@ func to_ascii() -> String:
 			elif items.get(c) == Items.BEAR_TRAP: out += "X"
 			elif items.get(c) == Items.BACKPACK: out += "Z"
 			elif items.get(c) == Items.KEY_GOLD: out += "K"
+			elif Items.VALUES.has(items.get(c, &"")): out += "$"
 			elif door_kinds.get(c) == DOOR_GOLDEN: out += "G"
+			elif door_kinds.get(c) == DOOR_SECRET: out += "H"
 			elif doors.has(c): out += "D"
 			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."
@@ -497,3 +508,90 @@ func _exit_options(room: Rect2i) -> Array:
 
 func _cell_distance(dist: PackedInt32Array, c: Vector2i) -> int:
 	return dist[c.y * width + c.x]
+
+
+## Stanze segrete (`secret_room_count`): stanzette scavate nella roccia accanto a una stanza (mai quella
+## d'ingresso), collegate solo da una cella di passaggio chiusa da un muro segreto. Tutt'attorno roccia piena:
+## non toccano altri corridoi, quindi l'unica via è il muro segreto.
+func _carve_secret_rooms() -> void:
+	if secret_room_count.y <= 0 or rooms.size() < 2:
+		return
+	for n in _rng.randi_range(secret_room_count.x, secret_room_count.y):
+		for attempt in 40:
+			var room := rooms[_rng.randi_range(1, rooms.size() - 1)]
+			var dir := SIDES[_rng.randi_range(0, 3)]
+			var edge := Vector2i(
+				_rng.randi_range(room.position.x, room.end.x - 1),
+				_rng.randi_range(room.position.y, room.end.y - 1))
+			if dir.x != 0:
+				edge.x = room.position.x if dir.x < 0 else room.end.x - 1
+			else:
+				edge.y = room.position.y if dir.y < 0 else room.end.y - 1
+			var size := Vector2i(
+				_rng.randi_range(secret_room_size.x, secret_room_size.y),
+				_rng.randi_range(secret_room_size.x, secret_room_size.y))
+			var door := edge + dir
+			var first := door + dir  # la prima cella della stanza segreta, subito dietro il muro
+			var rect := Rect2i(first, size)
+			if dir.x != 0:
+				rect.position.x = first.x if dir.x > 0 else first.x - size.x + 1
+				rect.position.y = first.y - _rng.randi_range(0, size.y - 1)
+			else:
+				rect.position.y = first.y if dir.y > 0 else first.y - size.y + 1
+				rect.position.x = first.x - _rng.randi_range(0, size.x - 1)
+			if _secret_fits(door, dir, rect):
+				_carve_room(rect)
+				_set_floor(door)
+				doors[door] = dir.x != 0
+				door_kinds[door] = DOOR_SECRET
+				secret_rooms.append(rect)
+				break
+
+
+## La stanza segreta `rect` e il passaggio `door` stanno nella roccia piena: niente pavimento attorno
+## (tranne la stanza da cui si entra, davanti al passaggio) e lontani dal bordo della mappa.
+func _secret_fits(door: Vector2i, dir: Vector2i, rect: Rect2i) -> bool:
+	if rect.position.x < 1 or rect.position.y < 1 or rect.end.x > width - 1 or rect.end.y > height - 1:
+		return false
+	var side := Vector2i(dir.y, dir.x)
+	if is_floor(door) or is_floor(door + side) or is_floor(door - side):
+		return false
+	var around := rect.grow(1)
+	for y in range(around.position.y, around.end.y):
+		for x in range(around.position.x, around.end.x):
+			var c := Vector2i(x, y)
+			if c != door and is_floor(c):
+				return false
+	return true
+
+
+## Vero se `c` è dentro una stanza segreta.
+func is_secret(c: Vector2i) -> bool:
+	for r in secret_rooms:
+		if r.has_point(c):
+			return true
+	return false
+
+
+## I tesori nelle stanze segrete (`treasures_per_secret_room`), scelti coi pesi di `treasure_weights`.
+## Va chiamata dopo place_items() (e place_key()): continua lo stesso generatore casuale.
+func place_treasures() -> void:
+	for rect in secret_rooms:
+		var free: Array[Vector2i] = []
+		for y in range(rect.position.y, rect.end.y):
+			for x in range(rect.position.x, rect.end.x):
+				free.append(Vector2i(x, y))
+		for n in mini(_rng.randi_range(treasures_per_secret_room.x, treasures_per_secret_room.y), free.size()):
+			items[free.pop_at(_rng.randi_range(0, free.size() - 1))] = _pick_treasure()
+
+
+func _pick_treasure() -> StringName:
+	var total := 0.0
+	for id in treasure_weights:
+		total += treasure_weights[id]
+	var r := _rng.randf() * total
+	for id in treasure_weights:
+		r -= treasure_weights[id]
+		if r < 0.0:
+			return id
+	return treasure_weights.keys()[-1]

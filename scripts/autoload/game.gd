@@ -7,6 +7,7 @@ var version: String = ProjectSettings.get_setting("application/config/version", 
 var run_seed: int = 0      ## seed della partita (mostrato a schermo)
 var floor_number: int = 1  ## piano corrente
 var run_time := 0.0        ## secondi passati nel dungeon in questa partita (scheda del giocatore)
+var score := 0            ## punti dei tesori messi in salvo portandoli giù per la scala (vedi Treasures)
 var run_over := false      ## il giocatore è morto: il tempo si ferma finché non parte una nuova partita
 
 

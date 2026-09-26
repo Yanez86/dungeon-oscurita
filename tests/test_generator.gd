@@ -22,8 +22,10 @@ func _init() -> void:
 		_test_enemies(s)
 		_test_exit_niche(s)
 		_test_key(s)
+		_test_secret_rooms(s)
 	_test_start_torch_always()
 	_test_exit_niche_always()
+	_test_secret_rooms_often()
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -312,6 +314,73 @@ func _test_key(s: int) -> void:
 		"seed %d: chiave fuori dalla stanza d'ingresso e da quella della nicchia" % s)
 	var dist := g.distances_from(g.start_cell)
 	_check(dist[key.y * g.width + key.x] >= 10, "seed %d: chiave lontana dall'ingresso (%d)" % [s, dist[key.y * g.width + key.x]])
+
+
+## Stanze segrete: dietro un muro segreto accanto a una stanza, raggiungibili solo da lì; dentro 1-3 tesori,
+## e tesori solo lì.
+func _test_secret_rooms(s: int) -> void:
+	var g := _full(s)
+	var secret_doors := g.door_kinds.keys().filter(func(c: Vector2i) -> bool: return g.door_kinds[c] == Gen.DOOR_SECRET)
+	_check(not g.secret_rooms.is_empty() and secret_doors.size() == g.secret_rooms.size(),
+		"seed %d: stanze segrete, ognuna col suo muro (%d, %d)" % [s, g.secret_rooms.size(), secret_doors.size()])
+	var shut := _reachable(g, [g.golden_door] + secret_doors)
+	var all := _reachable(g, [g.golden_door])
+	var ok := true
+	for r in g.secret_rooms:
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var c := Vector2i(x, y)
+				ok = ok and g.is_floor(c) and not shut.has(c) and all.has(c)
+				for room in g.rooms:
+					ok = ok and not room.has_point(c)
+	_check(ok, "seed %d: le stanze segrete si raggiungono solo dal muro segreto" % s)
+	ok = true
+	for d: Vector2i in secret_doors:
+		var step := Vector2i.RIGHT if g.doors[d] else Vector2i.DOWN
+		var side := Vector2i(step.y, step.x)
+		var ends := [d + step, d - step]
+		var in_room := ends.filter(func(c: Vector2i) -> bool: return g.rooms.any(func(r: Rect2i) -> bool: return r.has_point(c)))
+		ok = ok and not g.is_floor(d + side) and not g.is_floor(d - side)
+		ok = ok and in_room.size() == 1 and (g.is_secret(ends[0]) or g.is_secret(ends[1]))
+		ok = ok and not g.decorations.has(d + step) and not g.decorations.has(d - step)
+	_check(ok, "seed %d: il muro segreto sta tra una stanza e la sua stanza segreta, sgombro" % s)
+	var counts: Array[int] = []
+	counts.resize(g.secret_rooms.size())
+	ok = true
+	for c: Vector2i in g.items:
+		if not Items.VALUES.has(g.items[c]):
+			continue
+		var i := g.secret_rooms.find_custom(func(r: Rect2i) -> bool: return r.has_point(c))
+		ok = ok and i >= 0
+		if i >= 0:
+			counts[i] += 1
+	_check(ok and counts.all(func(n: int) -> bool: return n >= 1 and n <= 3),
+		"seed %d: 1-3 tesori in ogni stanza segreta, e solo lì (%s)" % [s, counts])
+	var again := _full(s)
+	_check(again.secret_rooms == g.secret_rooms and again.items == g.items, "seed %d: stesso seed, stessi segreti" % s)
+
+
+## Un piano con tutto, come lo prepara il builder dal piano 2.
+func _full(s: int) -> Gen:
+	var g := Gen.new()
+	g.secret_room_count = Vector2i(1, 2)
+	g.generate(s)
+	g.place_items(4, 1)
+	g.place_key()
+	g.place_treasures()
+	g.place_decorations()
+	g.place_enemies(2)
+	return g
+
+
+func _test_secret_rooms_often() -> void:
+	var found := 0
+	for s in range(1, 201):
+		var g := Gen.new()
+		g.secret_room_count = Vector2i(1, 1)
+		g.generate(s)
+		found += int(g.secret_rooms.size() == 1)
+	_check(found >= 190, "200 seed: una stanza segreta quando la si chiede (%d)" % found)
 
 
 ## Celle raggiungibili dall'ingresso senza attraversare `blocked`.

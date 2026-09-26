@@ -19,7 +19,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | Ctrl o C | Accovacciarsi (meno rumore) |
 | F | Spegnere la torcia (solo quella in mano: riposta continua a bruciare) |
 | Q | Usare l'oggetto selezionato. Acciarino: accende la torcia (riaccende quella in uso se è spenta, altrimenti una nuova) e la prende in mano; lo scatto si sente. Torcia accesa: la butta a terra (fa rumore), dove continua a bruciare, e se ne hai una nuova la accende dalla sua fiamma. Tagliola: la posa davanti ai piedi (fa rumore). Zaino: lo metti in spalla, 3 posti in più |
-| E | Raccogliere l'oggetto vicino (una torcia buttata torna nell'inventario e in mano) / aprire o chiudere una porta (fa rumore; la porta dorata solo con la chiave d'oro) |
+| E | Raccogliere l'oggetto vicino (una torcia buttata torna nell'inventario e in mano) / aprire o chiudere una porta (fa rumore; la porta dorata solo con la chiave d'oro) / se non c'è niente a portata, bussare sul muro davanti (fa un po' di rumore) |
 | 1–8 | Scegliere lo slot dell'inventario: l'oggetto selezionato è quello in mano (6–8 solo con lo zaino) |
 | G | Lasciare a terra l'oggetto selezionato (fa rumore; il legno bruciato si può solo buttare) |
 | M | Mostrare / nascondere la mappa (si disegna solo ciò che la torcia illumina) |
@@ -27,7 +27,7 @@ Dungeon crawler cooperativo in 3D: torce che si consumano, mostri che sentono tu
 | F3 | Debug (anche lo stato di ogni Cieco e la sua distanza) |
 | F4 | Filtro retro PS1 on/off |
 | F6 / F7 | Solo build di debug: togliere / ridare un punto di energia |
-| Tab | Menu: scheda del giocatore (energia, torcia, rumore dei passi). Il gioco non si ferma: la torcia continua a bruciare |
+| Tab | Menu: scheda del giocatore (energia, torcia, tesori, rumore dei passi). Il gioco non si ferma: la torcia continua a bruciare |
 | I | Menu: inventario (clic su uno slot per selezionarlo, pulsante per lasciarlo a terra) |
 | J | Menu: diario (cosa è successo, piano per piano) |
 | Esc | Menu: impostazioni (sensibilità del mouse, volume, filtro PS1, schermo intero; si salvano da sole). Libera il mouse; se il menu è aperto lo chiude |
@@ -43,6 +43,7 @@ L'energia non si recupera e passa da un piano all'altro. A zero si muore: la par
 **Scudo** (a volte a terra in un piano): basta averlo nell'inventario, para 1 danno di ogni colpo. Al primo colpo diventa "scudo incrinato", al secondo si rompe. Lo stato si vede nella scheda del giocatore (Tab).
 **Tagliola** (1–2 a terra per piano): selezionala e premi Q per posarla davanti ai piedi. Si arma dopo un secondo; il Cieco non la vede, ci finisce dentro e resta bloccato 3 secondi. Lo scatto si sente lontano e può richiamare altri Ciechi. Usa e getta; per ora non scatta sui giocatori.
 **Zaino** (sempre al piano 1, a volte più in basso): selezionalo e premi Q per metterlo in spalla. L'inventario passa da 5 a 8 posti per il resto della partita (tasti 6–8). Se ne porta uno solo; una nuova partita riparte senza.
+**Muri segreti e tesori** (0–1 stanze segrete al piano 1, 1–2 dal piano 2): accanto a qualche stanza c'è una stanzetta nascosta dietro un muro identico agli altri. Da vicino, con la torcia, si nota il contorno di una porta nelle fughe dei mattoni; bussando (E verso il muro) la pietra piena suona sorda, il muro segreto suona vuoto. Da lì E lo spinge: sprofonda nel pavimento strisciando (rumore) e si può richiudere, anche da dentro. Sulla mappa finché è chiuso è un muro. Dentro ci sono 1–3 **tesori**: monete d'oro (10 punti), rubino (25), calice d'oro (50). Occupano uno slot come ogni oggetto e valgono punti solo quando li porti giù per la scala: lì escono dall'inventario e vanno nel punteggio. Se muori, quelli che hai addosso sono persi. Il punteggio si vede nella scheda del giocatore (Tab) e nella schermata di fine.
 **Trappole** (2 al piano 1, una in più a ogni piano, fino a 8; mai vicino all'ingresso). Ognuna ha un innesco che si vede, se guardi dove metti i piedi; quando scatta fa un suono breve e l'effetto arriva un attimo dopo: chi reagisce subito si salva. Chi viene ferito grida, e il Cieco lo sente.
 
 | Trappola | Cosa si vede | Cosa fa | Come evitarla | Dal piano |

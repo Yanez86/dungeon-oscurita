@@ -19,6 +19,8 @@ extends Node3D
 @export var open_time := 0.6       ## secondi per spalancarsi
 @export var open_loudness := 0.45  ## il cigolio si sente lontano
 @export var close_loudness := 0.4  ## il tonfo della porta che si chiude
+@export var open_sound: StringName = &"door_open"    ## Sfx di quando si apre
+@export var close_sound: StringName = &"door_close"  ## …e di quando si chiude
 @export var sound_pitch := 1.0     ## cigolio e tonfo più gravi (< 1) per le porte pesanti
 @export var clearance := 0.75      ## metri tra chi chiude e il vano (per non restare incastrati)
 
@@ -38,7 +40,7 @@ signal closed
 
 var is_open := false
 
-var _pivot := Node3D.new()
+var _pivot: Node3D  ## cardine dell'anta (lo crea _build: le porte speciali possono non averlo)
 var _collision := CollisionShape3D.new()
 var _tween: Tween
 var _darts_armed := false
@@ -57,6 +59,7 @@ func _build() -> void:
 		_build_bells()
 
 	# Anta: figlia del cardine, spostata di mezza larghezza.
+	_pivot = Node3D.new()
 	_pivot.position.x = -opening / 2.0
 	add_child(_pivot)
 	var body := StaticBody3D.new()
@@ -127,7 +130,7 @@ func open(opener: Node3D) -> bool:
 		_spring_darts(signf(local.z))
 	_swing_to(angle, delay)
 	NoiseBus.emit_noise(global_position, open_loudness, opener)
-	Sfx.play_at(self, &"door_open", global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
+	Sfx.play_at(self, open_sound, global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
 	_ring_bells(opener)
 	opened.emit()
 	return true
@@ -159,7 +162,7 @@ func close(closer: Node3D) -> bool:
 	_collision.set_deferred("disabled", false)
 	_swing_to(0.0)
 	NoiseBus.emit_noise(global_position, close_loudness, closer)
-	Sfx.play_at(self, &"door_close", global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
+	Sfx.play_at(self, close_sound, global_position + Vector3.UP * 1.2, 0.0, sound_pitch)
 	_ring_bells(closer)
 	closed.emit()
 	return true

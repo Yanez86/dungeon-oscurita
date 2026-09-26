@@ -1,7 +1,8 @@
 class_name DeathScreen
 extends Control
 ## Schermata di fine partita: lo schermo si scurisce piano, poi compaiono piano raggiunto,
-## tempo nel buio, causa e seed (per le segnalazioni). R avvia una nuova partita (vedi main.gd).
+## tempo nel buio, tesori messi in salvo, causa e seed (per le segnalazioni).
+## R avvia una nuova partita (vedi main.gd).
 
 @export var fade_time := 1.5  ## secondi per scurire lo schermo
 @export var darkness := 0.8   ## opacità finale del velo nero
@@ -9,6 +10,7 @@ extends Control
 var _veil := ColorRect.new()
 var _box := VBoxContainer.new()
 var _details := UiTheme.label("")
+var _score := UiTheme.label("", UiTheme.ACCENT)
 var _cause := UiTheme.label("", UiTheme.DIM)
 var _seed := UiTheme.label("", UiTheme.DIM, 13)
 var _tween: Tween
@@ -31,7 +33,7 @@ func _ready() -> void:
 	_box.add_theme_constant_override("separation", 10)
 	add_child(_box)
 	var title := UiTheme.label("Sei morto", Color(0.75, 0.22, 0.16), 48)
-	for l: Label in [title, _details, _cause, _seed]:
+	for l: Label in [title, _details, _score, _cause, _seed]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_box.add_child(l)
 	var hint := UiTheme.label("R  nuova partita", UiTheme.ACCENT)
@@ -39,12 +41,15 @@ func _ready() -> void:
 	_box.add_child(hint)
 
 
-## `cause`: chi ti ha ucciso ("il Cieco"), vuota se non si sa.
-func appear(cause: String) -> void:
+## `cause`: chi ti ha ucciso ("il Cieco"), vuota se non si sa. `lost`: quanto valevano i tesori che avevi addosso.
+func appear(cause: String, lost: int = 0) -> void:
 	var secs := int(Game.run_time)
 	_details.text = "Piano %d  ·  %d:%02d nel buio" % [Game.floor_number, secs / 60, secs % 60]
 	_cause.text = "Ucciso %s." % Player.by_cause(cause) if cause != "" else ""
-	_cause.visible = cause != ""
+	if lost > 0:
+		_cause.text += ("\n" if cause != "" else "") + "Avevi addosso tesori per %d punti: persi." % lost
+	_cause.visible = _cause.text != ""
+	_score.text = "Tesori messi in salvo: %d punti" % Game.score
 	_seed.text = "seed %d" % Game.run_seed
 	visible = true
 	_veil.color.a = 0.0

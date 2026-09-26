@@ -14,6 +14,10 @@ const SHIELD_CRACKED := &"shield_cracked"   ## scudo che ha già parato un colpo
 const BEAR_TRAP := &"bear_trap"             ## tagliola usa e getta: posata con Q, blocca un nemico per qualche secondo
 const BACKPACK := &"backpack"               ## zaino: messo in spalla con Q dà slot in più, per tutta la partita
 const KEY_GOLD := &"key_gold"               ## chiave d'oro: una per piano, apre la porta dorata della scala
+## Tesori: occupano uno slot e valgono punti (VALUES) solo quando li porti giù per la scala (vedi Treasures).
+const COINS := &"coins"
+const GEM := &"gem"
+const CHALICE := &"chalice"
 
 const NAMES := {
 	TORCH: "Torcia",
@@ -27,6 +31,16 @@ const NAMES := {
 	BEAR_TRAP: "Tagliola",
 	BACKPACK: "Zaino",
 	KEY_GOLD: "Chiave d'oro",
+	COINS: "Monete d'oro",
+	GEM: "Rubino",
+	CHALICE: "Calice d'oro",
+}
+
+## Punti di ogni tesoro, quando lo si mette in salvo scendendo la scala.
+const VALUES := {
+	COINS: 10,
+	GEM: 25,
+	CHALICE: 50,
 }
 
 const DESCRIPTIONS := {
@@ -41,6 +55,9 @@ const DESCRIPTIONS := {
 	BEAR_TRAP: "Una tagliola di ferro. Selezionala e premi Q per posarla davanti ai piedi (fa rumore). Il Cieco non la vede: ci finisce dentro e resta bloccato 3 secondi, e lo scatto si sente lontano. Si usa una volta sola.",
 	BACKPACK: "Uno zaino di cuoio. Selezionalo e premi Q per metterlo in spalla: 3 posti in più per il resto della partita. Se ne porti solo uno.",
 	KEY_GOLD: "Una grossa chiave d'oro. Apre la porta dorata che chiude la scala verso il piano di sotto: basta averla con sé e premere E sulla porta. Resta nella serratura.",
+	COINS: "Un mucchietto di monete d'oro. Vale 10 punti quando lo porti giù per la scala: fino ad allora occupa un posto, e se muori lo perdi.",
+	GEM: "Un rubino grosso come una noce. Vale 25 punti quando lo porti giù per la scala: fino ad allora occupa un posto, e se muori lo perdi.",
+	CHALICE: "Un calice d'oro con tre rubini incastonati. Vale 50 punti quando lo porti giù per la scala: fino ad allora occupa un posto, e se muori lo perdi.",
 }
 
 

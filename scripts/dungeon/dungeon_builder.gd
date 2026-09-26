@@ -32,6 +32,9 @@ const WALL_H := 3.0   ## altezza dei muri
 @export var bear_traps_per_floor := Vector2i(1, 2)  ## tagliole a terra (min, max)
 @export var backpack_first_floor := 1.0  ## probabilità dello zaino a terra al piano 1 (1 = sempre)
 @export var backpack_chance := 0.15      ## …e nei piani dopo (per chi l'ha perso, o per i compagni in coop)
+@export var secret_rooms_first_floor := Vector2i(0, 1)  ## stanze segrete coi tesori al piano 1 (min, max)
+@export var secret_rooms_deeper := Vector2i(1, 2)       ## …e dal piano 2
+@export var treasures_per_secret_room := Vector2i(1, 3)
 
 @export_group("Struttura")
 @export var max_corridor := 12              ## distanza massima tra stanze collegate (celle)
@@ -61,6 +64,7 @@ const DOOR_SCENE := preload("res://scenes/door.tscn")
 ## Porte speciali del generatore (DungeonGenerator.door_kinds): le altre sono DOOR_SCENE.
 const SPECIAL_DOOR_SCENES: Dictionary[StringName, PackedScene] = {
 	DungeonGenerator.DOOR_GOLDEN: preload("res://scenes/golden_door.tscn"),
+	DungeonGenerator.DOOR_SECRET: preload("res://scenes/secret_door.tscn"),
 }
 const WALL_TORCH_SCENE := preload("res://scenes/wall_torch.tscn")
 ## Una scena per ogni tipo di trappola sul pavimento (vedi TrapLayout).
@@ -115,9 +119,12 @@ func build(seed_value: int, floor_number: int = 1) -> void:
 	gen.shield_chance = shield_chance
 	gen.bear_trap_count = bear_traps_per_floor
 	gen.backpack_chance = backpack_first_floor if floor_number == 1 else backpack_chance
+	gen.secret_room_count = secret_rooms_first_floor if floor_number == 1 else secret_rooms_deeper
+	gen.treasures_per_secret_room = treasures_per_secret_room
 	gen.generate(seed_value)
 	gen.place_items(torches_for_floor(floor_number), flints_per_floor)
 	gen.place_key()
+	gen.place_treasures()
 	gen.place_decorations()
 	gen.place_enemies(blinds_for_floor(floor_number))
 	traps = TrapLayout.new()
@@ -261,10 +268,13 @@ func _add_corner_pillars(pieces: Dictionary[StringName, Array]) -> void:
 		for x in range(1, gen.width):
 			# Le quattro celle attorno al vertice tra (x-1, y-1) e (x, y).
 			var around: Array[Vector2i] = [Vector2i(x - 1, y - 1), Vector2i(x, y - 1), Vector2i(x - 1, y), Vector2i(x, y)]
-			var floors := 0
+			# Dal lato della stanza, il passaggio di un muro segreto conta come muro: nessun pilastro lo tradisce.
+			var hide := _by_secret_wall(around)
+			var open: Array[bool] = []
 			for c in around:
-				floors += int(gen.is_floor(c))
-			var diagonal := floors == 2 and gen.is_floor(around[0]) == gen.is_floor(around[3])
+				open.append(gen.is_floor(c) and not (hide and gen.door_kinds.get(c) == DungeonGenerator.DOOR_SECRET))
+			var floors := open.count(true)
+			var diagonal := floors == 2 and open[0] == open[3]
 			if not (floors == 1 or floors == 3 or diagonal):
 				continue
 			var pos := cell_to_world(Vector2i(x, y)) - Vector3(CELL / 2.0, 0, CELL / 2.0)
@@ -285,7 +295,25 @@ func _in_room(c: Vector2i) -> bool:
 	for r in gen.rooms:
 		if r.has_point(c):
 			return true
-	return false
+	return gen.is_secret(c)  # anche le stanze segrete hanno il pavimento di pietra
+
+
+## Vero per un vertice tra il passaggio di un muro segreto e la stanza da cui lo si vede.
+func _by_secret_wall(around: Array[Vector2i]) -> bool:
+	var secret := false
+	var room := false
+	for c in around:
+		secret = secret or gen.door_kinds.get(c) == DungeonGenerator.DOOR_SECRET
+		room = room or (gen.is_floor(c) and not gen.is_secret(c) and not gen.doors.has(c))
+	return secret and room
+
+
+## Da che lato di un muro segreto sta la stanza da cui lo si vede.
+func _secret_facing(c: Vector2i) -> Vector2i:
+	for d in DIRS:
+		if gen.is_floor(c + d) and not gen.is_secret(c + d):
+			return d
+	return DIRS[0]
 
 
 ## Arredi contro il muro, girati verso la stanza; il modello varia col seed.
@@ -443,7 +471,10 @@ func _add_doors() -> void:
 		door.wall_height = WALL_H
 		door.trap = traps.door_traps.get(c, &"")
 		door.position = cell_to_world(c)
-		if gen.doors[c]:
+		if gen.door_kinds.get(c) == DungeonGenerator.DOOR_SECRET:
+			var facing := _secret_facing(c)
+			door.rotation.y = atan2(float(facing.x), float(facing.y))  # +z verso la stanza: lì c'è il muro finto
+		elif gen.doors[c]:
 			door.rotation.y = PI / 2.0
 		add_child(door)
 		door.opened.connect(door_opened.emit.bind(c))

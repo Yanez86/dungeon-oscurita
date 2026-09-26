@@ -292,10 +292,11 @@ func _usable(c: Vector2i) -> bool:
 	return true
 
 
-## Pavimento senza oggetti, arredi, porte, uscita e ingresso.
+## Pavimento senza oggetti, arredi, porte, uscita e ingresso, fuori dalle stanze segrete.
 func _free_spot(c: Vector2i) -> bool:
 	return _gen.is_floor(c) and c != _gen.exit_cell and c != _gen.start_cell \
-		and not _gen.items.has(c) and not _gen.decorations.has(c) and not _gen.doors.has(c)
+		and not _gen.items.has(c) and not _gen.decorations.has(c) and not _gen.doors.has(c) \
+		and not _gen.is_secret(c)
 
 
 func _near_start(c: Vector2i) -> bool:

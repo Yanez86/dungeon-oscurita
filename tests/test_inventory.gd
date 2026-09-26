@@ -20,6 +20,7 @@ func _init() -> void:
 	_test_torches()
 	_test_torch_thrown()
 	_test_grow_and_reset()
+	_test_treasures()
 	print("Test inventario: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -81,6 +82,20 @@ func _test_replace() -> void:
 	_check(inv.replace(It.SHIELD, It.SHIELD_CRACKED) and inv.slots[1] == It.SHIELD_CRACKED, "replace resta nello stesso slot")
 	_check(not inv.replace(It.FLINT, It.TORCH), "replace di un oggetto assente: falso")
 	_check(not inv.replace(It.TORCH, &"") and inv.slots[0] == It.TORCH, "replace non svuota uno slot")
+
+
+## Tesori: valgono solo quelli addosso; scendendo la scala escono dall'inventario e restituiscono i punti.
+func _test_treasures() -> void:
+	var inv := Inv.new(5)
+	inv.add(It.FLINT)
+	inv.add(It.GEM)
+	inv.add(It.COINS)
+	inv.add(It.CHALICE)
+	_check(Treasures.carried_value(inv) == 85, "valore dei tesori addosso (%d)" % Treasures.carried_value(inv))
+	_check(Treasures.is_treasure(It.GEM) and not Treasures.is_treasure(It.KEY_GOLD), "la chiave non è un tesoro")
+	_check(Treasures.bank(inv) == 85, "bank restituisce i punti")
+	_check(inv.count(&"") == 4 and inv.slots[0] == It.FLINT, "bank libera gli slot dei tesori, il resto resta")
+	_check(Treasures.bank(inv) == 0 and Treasures.carried_value(inv) == 0, "niente tesori, niente punti")
 
 
 ## Zaino: gli slot in più arrivano vuoti in fondo, il contenuto resta; una nuova partita torna a 5.

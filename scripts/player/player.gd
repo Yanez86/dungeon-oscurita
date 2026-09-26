@@ -38,6 +38,8 @@ extends CharacterBody3D
 @export var bear_trap_loudness := 0.35  ## aprire e posare la tagliola fa rumore
 @export var backpack_slots := 3        ## slot in più quando si mette lo zaino in spalla (uno solo a testa)
 @export var backpack_loudness := 0.15  ## il cuoio e le fibbie si sentono appena
+@export var knock_range := 1.4       ## metri: E verso un muro vicino (e niente da raccogliere o aprire) ci bussa
+@export var knock_loudness := 0.2    ## bussare si sente: i muri segreti suonano vuoto
 
 ## Frase breve da mostrare a schermo (la legge l'HUD).
 signal message(text: String)
@@ -304,6 +306,8 @@ func _handle_items() -> void:
 			_use_door(nearby_door)
 		elif in_pit:
 			_climb_out()
+		else:
+			_knock()
 	if input.drop:
 		_drop_selected()
 	_sync_torch()
@@ -424,6 +428,10 @@ func _pick_up() -> void:
 		return
 	if nearby_pickup.item == Items.TORCH and not torch.lit:
 		message.emit("Raccolto: %s. Acciarino e Q per accenderla." % nearby_pickup.display_name())
+	elif Treasures.is_treasure(nearby_pickup.item):
+		Sfx.play_at(self, &"treasure_pickup", nearby_pickup.global_position)
+		message.emit("Raccolto: %s. Vale %d punti se lo porti giù per la scala." % [
+			nearby_pickup.display_name(), Items.VALUES[nearby_pickup.item]])
 	else:
 		message.emit("Raccolto: %s" % nearby_pickup.display_name())
 	note("Raccolto: %s." % nearby_pickup.display_name())
@@ -524,6 +532,26 @@ func _find_nearby_pickup() -> Pickup:
 			best_d = d
 			best = p
 	return best
+
+
+## E verso un muro vicino: ci bussa (fa un po' di rumore). La pietra piena suona sorda; un muro segreto
+## suona vuoto, e da lì E lo spinge (vedi SecretDoor). Pavimento, soffitto e aria non si bussano.
+func _knock() -> void:
+	var from := head.global_position
+	var to := from - head.global_transform.basis.z * knock_range
+	var query := PhysicsRayQueryParameters3D.create(from, to, collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or absf((hit["normal"] as Vector3).y) > 0.5:
+		return
+	var at: Vector3 = hit["position"]
+	var node := hit["collider"] as Node
+	while node and not node is SecretDoor:
+		node = node.get_parent()
+	if node:
+		(node as SecretDoor).knock(self, at)
+	else:
+		Sfx.play_at(self, &"wall_knock", at)
+		NoiseBus.emit_noise(at, knock_loudness, self)
 
 
 ## E su una porta: se è chiusa la apre, se è aperta la richiude (non se nel vano c'è qualcuno).

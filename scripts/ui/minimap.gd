@@ -97,7 +97,12 @@ func _cell_color(c: Vector2i) -> Color:
 	if c == gen.exit_cell:
 		return exit_color
 	if explored.closed_doors.has(c):
-		return golden_door_color if gen.door_kinds.get(c) == DungeonGenerator.DOOR_GOLDEN else door_color
+		match gen.door_kinds.get(c, &""):
+			DungeonGenerator.DOOR_GOLDEN:
+				return golden_door_color
+			DungeonGenerator.DOOR_SECRET:
+				return wall_color  # finché è chiuso è un muro come gli altri
+		return door_color
 	return floor_color if gen.is_floor(c) else wall_color
 
 
