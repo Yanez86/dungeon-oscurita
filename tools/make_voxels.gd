@@ -80,6 +80,24 @@ func _init() -> void:
 	count += _save("trap_bear_open", _bear_trap_open())
 	count += _save("enemy_blind", _blind())
 	count += _save("item_rope", _item_rope())
+	count += _save("floor_spikes", _floor_spikes())
+	count += _save("trap_spikes", _trap_spikes())
+	count += _save("trap_plate", _trap_plate())
+	count += _save("trap_grate", _trap_grate())
+	count += _save("trap_cage", _trap_cage())
+	count += _save("trap_chain", _trap_chain())
+	count += _save("trap_wire", _trap_wire(false))
+	count += _save("trap_wire_cut", _trap_wire(true))
+	count += _save("trap_dart", _trap_dart())
+	count += _save("trap_bells", _trap_bells())
+	count += _save("door_leaf_darts", _door_leaf_darts())
+	count += _save("trapdoor_leaf", _trapdoor_leaf())
+	count += _save("pit_shaft", _pit_shaft())
+	count += _save("pit_rope", _pit_rope())
+	count += _save("boulder", _boulder())
+	count += _save("boulder_rubble", _boulder_rubble())
+	count += _save("boulder_shaft", _boulder_shaft())
+	count += _save("ceiling_hole", _ceiling_hole())
 	print("Modelli voxel salvati: %d in %s" % [count, OUT])
 	quit()
 
@@ -730,4 +748,254 @@ func _item_rope() -> VoxModel:
 		m.paint(Vector3i(1, y, 4), _tone(HEMP, -3))
 	for p in [Vector2i(9, 5), Vector2i(10, 6), Vector2i(11, 6), Vector2i(11, 7)]:
 		m.paint(Vector3i(p.x, 0, p.y), _jitter(HEMP, 0.5))  # capo libero
+	return m
+
+
+# I modelli "trap_*" usano i voxel piccoli (6,25 cm) come gli oggetti; fossa, masso, botola e soffitto
+# col buco hanno i voxel normali (12,5 cm) come muri e pavimenti.
+
+const HOLE := Color(0.05, 0.045, 0.04)  ## fori e fessure: quasi nero
+const BONE := Color(0.78, 0.74, 0.64)
+const SPIKE_HOLES: Array[int] = [1, 3, 5, 10, 12, 14]  ## righe e colonne dei fori delle frecce (voxel normali)
+
+
+## Lastra di pietra con una griglia di forellini (ci escono le frecce, vedi trap_spikes).
+## Al centro resta liscia: lì c'è la piastra (trap_plate). Il fondo dei fori è buio.
+func _floor_spikes() -> VoxModel:
+	var m := _floor_stone(false)
+	for i in SPIKE_HOLES:
+		for j in SPIKE_HOLES:
+			m.erase_voxel(Vector3i(i, FLOOR_T - 1, j))
+			m.paint(Vector3i(i, 0, j), HOLE)
+	return m
+
+
+## Letto di frecce 32 x 6 x 32 (voxel piccoli: la cella intera), una sotto ogni foro di floor_spikes:
+## asta di legno chiaro e punta di ferro. Sta sotto il pavimento finché la trappola non scatta.
+func _trap_spikes() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(CELL * 2, 6, CELL * 2))
+	for i in SPIKE_HOLES:
+		for j in SPIKE_HOLES:
+			# Il foro i copre i voxel piccoli 2i e 2i+1: si prende quello verso il centro (simmetria).
+			var p := Vector2i(2 * i + int(i < 8), 2 * j + int(j < 8))
+			m.fill_box(Vector3i(p.x, 0, p.y), Vector3i(p.x, 4, p.y), _jitter(WOOD_LIGHT, 0.4))
+			m.paint(Vector3i(p.x, 5, p.y), RIVET)
+	return m
+
+
+## Piastra a pressione 8 x 1 x 8 (voxel piccoli, 50 cm): pietra più chiara del pavimento con un bordo scuro,
+## sporge di un voxel. Chi guarda dove mette i piedi la vede.
+func _trap_plate() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(8, 1, 8))
+	for x in 8:
+		for z in 8:
+			var edge := x == 0 or z == 0 or x == 7 or z == 7
+			var c := _tone(DRESSED, -4) if edge else _jitter(_tone(DRESSED, 2), 0.3)
+			if (x == 3 or x == 4) and (z == 3 or z == 4):
+				c = _tone(DRESSED, -1)  # segno al centro
+			m.paint(Vector3i(x, 0, z), c)
+	return m
+
+
+## Bocchetta 10 x 8 x 5 (voxel piccoli) da murare: una cassetta di ferro che sporge dai mattoni, sbarre
+## verticali sul davanti (+z) e buio dentro.
+func _trap_grate() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(10, 8, 5))
+	m.fill_box(Vector3i(0, 0, 0), Vector3i(9, 7, 0), HOLE)
+	for x in 10:
+		for y in 8:
+			var frame := x == 0 or x == 9 or y == 0 or y == 7
+			if frame:
+				for z in range(1, 4):
+					m.paint(Vector3i(x, y, z), _jitter(_tone(IRON, -1), 0.3))
+			if frame or x % 2 == 1:
+				m.paint(Vector3i(x, y, 4), _jitter(IRON if frame else _tone(IRON, 2), 0.3))
+	return m
+
+
+## Gabbia 28 x 40 x 28 (voxel piccoli: 1,75 x 2,5 m): sbarre ogni 3 voxel con la punta in basso,
+## tre cerchi orizzontali e una croce di travi in cima. Base in y = 0.
+func _trap_cage() -> VoxModel:
+	var s := 28
+	var h := 40
+	var m: VoxModel = VoxModelScript.new(Vector3i(s, h, s))
+	for x in s:
+		for z in s:
+			if not (x == 0 or z == 0 or x == s - 1 or z == s - 1):
+				continue
+			var bar := (x % 3 == 0 and (z == 0 or z == s - 1)) or (z % 3 == 0 and (x == 0 or x == s - 1))
+			for y in range(1, h):
+				if bar or y == 1 or y == h / 2 or y == h - 1:
+					m.paint(Vector3i(x, y, z), _jitter(IRON, 0.4) if rng.randf() < 0.9 else RUST)
+			if bar:
+				m.paint(Vector3i(x, 0, z), RIVET)  # punta
+	for i in s:
+		m.paint(Vector3i(i, h - 1, s / 2), IRON)
+		m.paint(Vector3i(s / 2, h - 1, i), IRON)
+	return m
+
+
+## Catena 3 x 12 x 3 (voxel piccoli, 75 cm): maglie alternate, una di taglio e una di piatto.
+func _trap_chain() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 12, 3))
+	for link in 4:
+		var y0 := link * 3
+		var sides: Array[Vector3i] = [Vector3i(0, 1, 1), Vector3i(2, 1, 1)]
+		if link % 2 == 1:
+			sides = [Vector3i(1, 1, 0), Vector3i(1, 1, 2)]
+		for p: Vector3i in sides + [Vector3i(1, 0, 1), Vector3i(1, 2, 1)]:
+			m.paint(p + Vector3i(0, y0, 0), _jitter(IRON, 0.4))
+	return m
+
+
+## Filo teso 32 x 3 x 1 (voxel piccoli: 2 m, da muro a muro): due picchetti di ferro e la canapa chiara
+## a 15 cm da terra, che luccica alla luce della torcia. `cut`: il filo spezzato, i due capi a terra.
+func _trap_wire(cut: bool) -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(32, 3, 1))
+	for x in [0, 31]:
+		m.fill_box(Vector3i(x, 0, 0), Vector3i(x, 2, 0), IRON)
+	if not cut:
+		m.fill_box(Vector3i(1, 2, 0), Vector3i(30, 2, 0), _tone(HEMP, 3))
+		return m
+	for side in [1, -1]:
+		var x0 := 0 if side == 1 else 31
+		m.paint(Vector3i(x0 + side, 2, 0), _tone(HEMP, 2))
+		m.paint(Vector3i(x0 + side * 2, 1, 0), _tone(HEMP, 2))
+		for i in range(3, 8):
+			m.paint(Vector3i(x0 + side * i, 0, 0), _tone(HEMP, 1))
+	return m
+
+
+## Dardo 1 x 1 x 6 (voxel piccoli): punta di ferro verso +z, asta di legno, impennaggio scuro.
+func _trap_dart() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(1, 1, 6))
+	m.paint(Vector3i(0, 0, 5), RIVET)
+	for z in range(1, 5):
+		m.paint(Vector3i(0, 0, z), WOOD_LIGHT)
+	m.paint(Vector3i(0, 0, 0), CLOTH)
+	return m
+
+
+## Campanelli 9 x 8 x 3 (voxel piccoli): una staffa di ferro e tre campanelli d'ottone appesi a spaghi.
+func _trap_bells() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(9, 8, 3))
+	m.fill_box(Vector3i(0, 7, 1), Vector3i(8, 7, 1), IRON)
+	for i in 3:
+		var bx := 1 + i * 3
+		var top := 5 if i == 1 else 6  # quello in mezzo pende un po' più giù
+		for y in range(top + 1, 7):
+			m.paint(Vector3i(bx, y, 1), HEMP)
+		m.paint(Vector3i(bx, top, 1), _tone(BRASS, 1))
+		m.fill_box(Vector3i(bx - 1, top - 2, 0), Vector3i(bx + 1, top - 1, 2), _tone(BRASS, -1))
+		m.paint(Vector3i(bx, top - 1, 1), _tone(BRASS, 2))
+		m.paint(Vector3i(bx, top - 3, 1), IRON)  # batacchio
+	return m
+
+
+## Anta della porta a dardi: come door_leaf, con quattro fori scuri all'altezza del petto (si vedono da
+## entrambi i lati). Chi apre accovacciato si fa passare i dardi sopra la testa.
+func _door_leaf_darts() -> VoxModel:
+	var m := _door_leaf()
+	for x in [1, 3, 4, 6]:
+		m.paint(Vector3i(x, 10, 1), HOLE)
+	return m
+
+
+## Anta della botola 16 x 1 x 8 (2 m x 1 m): assi di legno chiaro, ben diverse dalla pietra attorno;
+## due cardini di ferro sul lato z = 0 e una fessura scura dove le due ante si toccano (z = 7).
+func _trapdoor_leaf() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(CELL, 1, 8))
+	for x in CELL:
+		var plank := _tone(WOOD_LIGHT, [0, -1, 1, -2][(x / 2) % 4])
+		for z in 8:
+			var c := _tone(plank, -3) if x % 2 == 1 and rng.randf() < 0.4 else _jitter(plank, 0.3)
+			m.paint(Vector3i(x, 0, z), _tone(WOOD, -2) if z == 7 else c)
+	for hx in [2, 12]:
+		m.fill_box(Vector3i(hx, 0, 0), Vector3i(hx + 1, 0, 2), IRON)
+		m.paint(Vector3i(hx, 0, 1), RIVET)
+	return m
+
+
+## Fossa 18 x 18 x 18 sotto la botola: pareti di pietra scura (dentro misura 16 voxel, cioè la cella)
+## e fondo di terra con le ossa di chi c'è caduto prima. Il builder la mette 2,5 m sotto il pavimento:
+## l'ultimo quarto di metro in alto è il bordo delle lastre vicine.
+func _pit_shaft() -> VoxModel:
+	var n := CELL + 2
+	var m: VoxModel = VoxModelScript.new(Vector3i(n, n, n))
+	for x in n:
+		for z in n:
+			m.paint(Vector3i(x, 0, z), _jitter(_tone(DIRT, -1), 0.5))
+			if x == 0 or z == 0 or x == n - 1 or z == n - 1:
+				for y in range(1, n):
+					var joint := y % 4 == 0
+					m.paint(Vector3i(x, y, z), MORTAR if joint else _jitter(_tone(STONE_DARK, (x + z + y / 4) % 3 - 1), 0.3))
+	# Ossa sul fondo: un teschio e qualche osso lungo.
+	m.fill_box(Vector3i(5, 1, 11), Vector3i(6, 2, 12), BONE)
+	m.paint(Vector3i(5, 2, 12), HOLE)
+	for p in [Vector3i(9, 1, 4), Vector3i(10, 1, 4), Vector3i(11, 1, 5), Vector3i(12, 1, 5), Vector3i(4, 1, 6), Vector3i(4, 1, 7)]:
+		m.paint(p, _jitter(BONE, 0.5))
+	return m
+
+
+## Corda appesa 3 x 40 x 2 (voxel piccoli: 2,5 m) dal bordo della fossa al fondo: in cima il nodo attorno
+## a un piolo di ferro. Il davanti (+z) guarda il centro della fossa.
+func _pit_rope() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(3, 40, 2))
+	for y in 37:
+		m.paint(Vector3i(1, y, 1), _tone(HEMP, -(y % 3)))
+	m.fill_box(Vector3i(0, 37, 1), Vector3i(2, 38, 1), _tone(HEMP, -2))
+	m.fill_box(Vector3i(0, 39, 0), Vector3i(2, 39, 1), IRON)
+	return m
+
+
+## Masso 14 x 14 x 14 (1,75 m, quasi quanto un corridoio): pietra scura a chiazze, qualche crepa.
+func _boulder() -> VoxModel:
+	var n := 14
+	var m: VoxModel = VoxModelScript.new(Vector3i(n, n, n))
+	var center := Vector3(n / 2.0, n / 2.0, n / 2.0)
+	for x in n:
+		for y in n:
+			for z in n:
+				var d := Vector3(x + 0.5, y + 0.5, z + 0.5).distance_to(center)
+				if d > n / 2.0 or d < n / 2.0 - 2.0:
+					continue  # solo il guscio: l'interno non si vede
+				var c := _jitter(_tone(STONE, -1 - (x / 3 + z / 4 + y / 5) % 3), 0.4)
+				if rng.randf() < 0.05:
+					c = MORTAR  # crepa
+				m.paint(Vector3i(x, y, z), c)
+	return m
+
+
+## Frantumi del masso 16 x 4 x 16: sassi di varie misure sparsi nella cella, i più grossi al centro.
+func _boulder_rubble() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(CELL, 4, CELL))
+	for i in 26:
+		var p := Vector2i(rng.randi_range(1, CELL - 3), rng.randi_range(1, CELL - 3))
+		var near := Vector2(p).distance_to(Vector2(7, 7)) < 5.0
+		var s := rng.randi_range(1, 3 if near else 2)
+		var h := rng.randi_range(0, s - 1)
+		m.fill_box(Vector3i(p.x, 0, p.y), Vector3i(p.x + s - 1, h, p.y + s - 1), _jitter(_tone(STONE, rng.randi_range(-3, 0)), 0.4))
+	return m
+
+
+## Pozzo 16 x 16 x 16 sopra il buco del soffitto: pareti e cima di pietra scura. Dentro aspetta il masso.
+func _boulder_shaft() -> VoxModel:
+	var m: VoxModel = VoxModelScript.new(Vector3i(CELL, CELL, CELL))
+	for x in CELL:
+		for z in CELL:
+			m.paint(Vector3i(x, CELL - 1, z), _tone(STONE_DARK, -2))
+			if x == 0 or z == 0 or x == CELL - 1 or z == CELL - 1:
+				for y in CELL - 1:
+					m.paint(Vector3i(x, y, z), _jitter(_tone(STONE_DARK, -1), 0.3))
+	return m
+
+
+## Soffitto col buco tondo (quasi 2 m) da cui cade il masso: da sotto si vede la sua pancia di pietra.
+func _ceiling_hole() -> VoxModel:
+	var m := _ceiling()
+	for x in CELL:
+		for z in CELL:
+			if Vector2(x + 0.5, z + 0.5).distance_to(Vector2(CELL / 2.0, CELL / 2.0)) < 7.4:
+				for y in FLOOR_T:
+					m.erase_voxel(Vector3i(x, y, z))
 	return m
