@@ -48,6 +48,9 @@ jobs:
       - name: Test delle impostazioni
         run: ./godot --headless -s res://tests/test_settings.gd
 
+      - name: Test del Cieco
+        run: ./godot --headless -s res://tests/test_blind.gd
+
       - name: Avvio del gioco (controllo errori)
         run: |
           ./godot --headless --quit-after 120 2>&1 | tee run.log

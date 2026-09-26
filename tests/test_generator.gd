@@ -19,6 +19,7 @@ func _init() -> void:
 		_test_wall_torches(s)
 		_test_start_room(s)
 		_test_decorations(s)
+		_test_enemies(s)
 	_test_start_torch_always()
 	print("Test generatore: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
@@ -197,6 +198,32 @@ func _test_decorations(s: int) -> void:
 		floors += int(a.grid[i] == Gen.Cell.FLOOR)
 	_check(seen.size() == floors - a.decorations.size(),
 		"seed %d: gli arredi non bloccano nessun passaggio (%d/%d)" % [s, seen.size(), floors - a.decorations.size()])
+
+
+func _test_enemies(s: int) -> void:
+	var a := Gen.new()
+	var b := Gen.new()
+	for g: Gen in [a, b]:
+		g.generate(s)
+		g.place_items(4, 1)
+		g.place_decorations()
+		g.place_enemies(3)
+	_check(a.enemies == b.enemies, "seed %d: stesso seed, stessi nemici" % s)
+	_check(a.enemies.size() == 3, "seed %d: tre nemici piazzati (%d)" % [s, a.enemies.size()])
+	var dist := a.distances_from(a.start_cell)
+	var ok := true
+	var rooms_used := {}
+	for c in a.enemies:
+		ok = ok and a.is_floor(c) and not a.rooms[0].has_point(c) and c != a.exit_cell
+		ok = ok and not a.items.has(c) and not a.decorations.has(c) and a.enemies.count(c) == 1
+		for i in a.rooms.size():
+			if a.rooms[i].has_point(c):
+				rooms_used[i] = true
+				ok = ok and dist[a.rooms[i].get_center().y * a.width + a.rooms[i].get_center().x] >= a.enemy_min_distance
+	_check(ok, "seed %d: nemici in stanze lontane dall'ingresso, mai su oggetti, arredi o uscita" % s)
+	_check(rooms_used.size() == 3, "seed %d: un nemico per stanza finché ce ne sono (%d stanze)" % [s, rooms_used.size()])
+	a.place_enemies(0)
+	_check(a.enemies.is_empty(), "seed %d: zero nemici" % s)
 
 
 func _check(cond: bool, label: String) -> void:

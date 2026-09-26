@@ -17,6 +17,7 @@ var items: Dictionary[Vector2i, StringName] = {}  ## cella -> id oggetto (vedi I
 var doors: Dictionary[Vector2i, bool] = {}  ## cella -> true se il passaggio va lungo x (est-ovest)
 var wall_torches: Dictionary[Vector2i, Vector2i] = {}  ## cella di pavimento -> direzione del muro
 var decorations: Dictionary[Vector2i, StringName] = {}  ## cella -> tipo d'arredo (vedi DECORATION_KINDS)
+var enemies: Array[Vector2i] = []  ## celle dove nascono i nemici (per ora tutti Ciechi)
 
 ## Arredi: il builder sceglie il modello 3D per ogni tipo. Bloccano il passaggio.
 const DECORATION_KINDS: Array[StringName] = [&"barrel", &"crate", &"trunk", &"candles"]
@@ -29,6 +30,7 @@ var wall_torch_count := Vector2i(2, 5)  ## quante torce a muro (min, max), se ci
 var start_room_size := Vector2i(3, 4)   ## lato minimo e massimo della stanza d'ingresso
 var start_wall_torches := 2             ## torce a muro nella stanza d'ingresso (sempre illuminata)
 var decorations_per_room := Vector2i(0, 3)  ## arredi per stanza (min, max), esclusa quella d'ingresso
+var enemy_min_distance := 12  ## passi minimi tra l'ingresso e la stanza di un nemico
 
 var _rng := RandomNumberGenerator.new()
 
@@ -47,6 +49,7 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 	doors.clear()
 	wall_torches.clear()
 	decorations.clear()
+	enemies.clear()
 
 	# Ogni nuova stanza si collega alla più vicina già esistente: corridoi corti.
 	# Le stanze troppo lontane da tutte le altre vengono scartate.
@@ -127,6 +130,43 @@ func place_decorations() -> void:
 			decorations[cell] =DECORATION_KINDS[_rng.randi_range(0, DECORATION_KINDS.size() - 1)]
 
 
+## Dove nascono i nemici: stanze ad almeno `enemy_min_distance` passi dall'ingresso (o la più lontana,
+## se il piano è piccolo), una diversa per ciascuno finché ce ne sono; mai su oggetti, arredi o uscita.
+## Va chiamata dopo place_decorations(): continua lo stesso generatore casuale.
+func place_enemies(count: int) -> void:
+	enemies.clear()
+	if count <= 0 or rooms.size() < 2:
+		return
+	var dist := distances_from(start_cell)
+	var far_rooms: Array[int] = []
+	var farthest := 1
+	var best := -1
+	for i in range(1, rooms.size()):
+		var c := rooms[i].get_center()
+		var d := dist[c.y * width + c.x]
+		if d >= enemy_min_distance:
+			far_rooms.append(i)
+		if d > best:
+			best = d
+			farthest = i
+	if far_rooms.is_empty():
+		far_rooms.append(farthest)
+	var unused: Array[int] = far_rooms.duplicate()
+	for n in count:
+		if unused.is_empty():
+			unused = far_rooms.duplicate()  # più nemici che stanze: si ricomincia
+		var pick: int = unused.pop_at(_rng.randi_range(0, unused.size() - 1))
+		var room := rooms[pick]
+		var free: Array[Vector2i] = []
+		for y in range(room.position.y, room.end.y):
+			for x in range(room.position.x, room.end.x):
+				var c := Vector2i(x, y)
+				if c != exit_cell and not items.has(c) and not decorations.has(c) and not enemies.has(c):
+					free.append(c)
+		if not free.is_empty():
+			enemies.append(free[_rng.randi_range(0, free.size() - 1)])
+
+
 func is_floor(c: Vector2i) -> bool:
 	return in_bounds(c) and grid[c.y * width + c.x] == Cell.FLOOR
 
@@ -163,7 +203,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 	return dist
 
 
-## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, T torcia, A acciarino,
+## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, C Cieco, T torcia, A acciarino,
 ## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
@@ -172,6 +212,7 @@ func to_ascii() -> String:
 			var c := Vector2i(x, y)
 			if c == start_cell: out += "S"
 			elif c == exit_cell: out += "E"
+			elif enemies.has(c): out += "C"
 			elif items.get(c) == Items.TORCH: out += "T"
 			elif items.get(c) == Items.FLINT: out += "A"
 			elif doors.has(c): out += "D"
