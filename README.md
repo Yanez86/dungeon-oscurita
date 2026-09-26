@@ -53,7 +53,7 @@ scripts/
   ui/              HUD minimo, menu (ui/menu/), overlay di debug
 tests/             test automatici
 tools/             generatore dei modelli voxel e anteprima
-assets/            modelli (voxel/ in .vox), audio, texture
+assets/            modelli (voxel/ in .vox), suoni (audio/ in .ogg), texture
 ```
 
 ## Regole del progetto
@@ -90,6 +90,7 @@ Nel nodo `Main` imposta `fixed_seed` al seed della segnalazione: il gioco rigene
 ## Crediti
 
 - Tutti i modelli sono voxel creati per il gioco (`assets/voxels/`, generati da `tools/make_voxels.gd`): nessun asset di terzi.
+- Suoni: pacchetti [RPG Audio](https://kenney.nl/assets/rpg-audio), [Impact Sounds](https://kenney.nl/assets/impact-sounds) e [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) di [Kenney](https://kenney.nl), licenza CC0 (`assets/audio/LICENSE-kenney.txt`). Ogni file ha il nome del suo ruolo nel gioco (es. `blind_step_1.ogg`, `door_open.ogg`): per cambiare un suono basta sovrascrivere il file. Respiro e verso del Cieco sono provvisori (Kenney non ha versi di creature).
 
 ## Grafica voxel
 

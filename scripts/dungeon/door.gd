@@ -86,6 +86,7 @@ func open(opener: Node3D) -> bool:
 	var angle := PI / 2.0 if local.z > 0.0 else -PI / 2.0  # +90° porta il pannello verso -z
 	_swing_to(angle)
 	NoiseBus.emit_noise(global_position, open_loudness, opener)
+	Sfx.play_at(self, &"door_open", global_position + Vector3.UP * 1.2)
 	opened.emit()
 	return true
 
@@ -103,6 +104,7 @@ func close(closer: Node3D) -> bool:
 	_collision.set_deferred("disabled", false)
 	_swing_to(0.0)
 	NoiseBus.emit_noise(global_position, close_loudness, closer)
+	Sfx.play_at(self, &"door_close", global_position + Vector3.UP * 1.2)
 	closed.emit()
 	return true
 
