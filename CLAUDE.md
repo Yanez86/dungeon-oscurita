@@ -24,18 +24,18 @@ Ogni funzionalità deve rafforzarne almeno uno:
 
 ## Struttura
 ```
-scenes/              main.tscn, player.tscn, pickup.tscn, ground_torch.tscn, door.tscn, wall_torch.tscn, blind.tscn, bear_trap.tscn, una scena per trappola (spike_trap, vent_trap, cage_trap, trapdoor, boulder_trap)
+scenes/              main.tscn, player.tscn, pickup.tscn, ground_torch.tscn, door.tscn, golden_door.tscn, secret_door.tscn, gate.tscn, lever.tscn, wall_torch.tscn, blind.tscn, bear_trap.tscn, una scena per trappola (spike_trap, vent_trap, cage_trap, trapdoor, boulder_trap)
 scripts/autoload/    game.gd (seed, piano, tempo, comandi), noise_bus.gd, settings.gd (impostazioni salvate in user://settings.cfg)
-scripts/dungeon/     dungeon_generator.gd (dati: stanze, oggetti, porte, torce a muro, arredi, nemici), dungeon_builder.gd (3D), dungeon_nav.gd (percorsi e distanza dei rumori per i nemici, solo dati), trap_layout.gd (dove stanno trappole, porte trappola e corde; solo dati, RNG proprio dal seed), door.gd (anche porte a dardi e coi campanelli), wall_torch.gd
+scripts/dungeon/     dungeon_generator.gd (dati: stanze, nicchia d'uscita, stanze segrete, cancelli e loro leve, oggetti, chiave, tesori, porte, torce a muro, arredi, nemici), dungeon_builder.gd (3D), dungeon_nav.gd (percorsi e distanza dei rumori per i nemici, solo dati), trap_layout.gd (dove stanno trappole, porte trappola, corde e leve delle trappole; solo dati, RNG proprio dal seed), door.gd (anche porte a dardi e coi campanelli; base delle porte speciali), golden_door.gd (serve la chiave d'oro), secret_door.gd (muro segreto: bussa e spingi), gate.gd (cancello a leva), lever.gd, wall_torch.gd
 scripts/traps/       trap.gd (base: innesco visibile, scatto udibile, effetto dopo warn_time), spike_trap.gd, vent_trap.gd, cage_trap.gd, trapdoor.gd (fossa e corda), boulder_trap.gd
 scripts/enemies/     blind.gd (il Cieco: corpo, movimento, suoni), blind_brain.gd (le sue decisioni, solo dati)
 scripts/voxel/       vox_model.gd (file .vox di MagicaVoxel), voxel_mesher.gd (voxel -> mesh), voxels.gd (caricamento modelli)
-assets/voxels/       tutti i modelli del gioco in .vox: muri, pavimenti, porte, arredi, torce a muro (1 voxel = 0.125 m)
+assets/voxels/       tutti i modelli del gioco in .vox: muri, pavimenti, porte, scala, arredi, torce a muro, leve (1 voxel = 0.125 m; oggetti, trappole, nemici, leve e cancelli 0.0625 m)
 scripts/audio/       sfx.gd (suoni per nome: <nome>.ogg o varianti <nome>_1, _2…)
 assets/audio/        suoni .ogg di Kenney (CC0), un nome fisso per ruolo: per cambiarne uno si sovrascrive il file
 tools/               make_voxels.gd (genera i .vox dal seed), voxel_preview.tscn (screenshot di controllo)
 scripts/player/      player.gd, player_input.gd, torch.gd, health.gd (energia, solo dati), journal.gd (diario, solo dati)
-scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola), shield.gd (regole dello scudo, solo dati), torches.gd (torce nell'inventario: nuova, in uso, legno bruciato; solo dati), bear_trap.gd (tagliola posata)
+scripts/items/       items.gd (catalogo id), inventory.gd (solo dati), pickup.gd (oggetto a terra), ground_torch.gd (torcia usata buttata a terra, brucia da sola), shield.gd (regole dello scudo, solo dati), treasures.gd (tesori: punti solo scendendo la scala; solo dati), torches.gd (torce nell'inventario: nuova, in uso, legno bruciato; solo dati), bear_trap.gd (tagliola posata)
 scripts/ui/          hud.gd (slot e messaggi), item_icons.gd (icone = miniature 3D dei modelli item_*), item_slot.gd, health_bar.gd + pips.gd (barra dell'energia), ui_theme.gd (stile dei menu), end_screen.gd (fine partita: morte o uscita), debug_overlay.gd (F3, F6/F7), psx_filter.gd (filtro retro, F4)
 scripts/ui/menu/     game_menu.gd (menu a schede: Tab, I, J, Esc) + una pagina per scheda (menu_page.gd è la base)
 shaders/             psx_post.gdshader (post-processing retro PS1), pickup_glow.gdshader (aura degli oggetti a terra), icon_outline.gdshader (bordino delle icone)
@@ -55,7 +55,7 @@ godot --headless --quit-after 120                 # avvio rapido per scovare err
 Dopo ogni modifica al codice: lancia test e avvio rapido e verifica che non ci siano `SCRIPT ERROR` o `Parse Error`. Per logica nuova e testabile senza grafica (inventario, IA, generazione) aggiungi un test in `tests/`.
 
 ## Flusso di lavoro
-- Segui la roadmap del GDD (M3 fatta: torce raccoglibili e inventario; prossima M4: eventi rumore e primo nemico, il Cieco).
+- Segui la roadmap del GDD (M4 fatta: il Cieco; M5 in test: porta dorata e chiave, muri segreti e tesori, leve, zaino, 6 piani con uscita; poi M6: coop).
 - Per funzionalità grandi proponi prima un piano.
 - **Solo `main`, nessun branch** (regola fissa): lavora e fai commit direttamente su `main`, niente branch né pull request. Commit piccoli con messaggio in italiano (la CI esegue i test a ogni push).
 - Incrementa `config/version` in `project.godot` quando si prepara una build per i tester; le build partono con un tag `vX.Y.Z`.
