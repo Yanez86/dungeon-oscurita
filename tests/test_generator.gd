@@ -74,6 +74,22 @@ func _test_items(s: int) -> void:
 	_check(ok, "seed %d: oggetti raggiungibili, mai sull'ingresso né sull'uscita" % s)
 	_check(in_start == [Items.TORCH], "seed %d: nella stanza d'ingresso solo una torcia a terra (%s)" % [s, in_start])
 
+	# Tagliole e scudo: dopo torce e acciarini, che restano dove erano.
+	var c := Gen.new()
+	c.bear_trap_count = Vector2i(2, 2)
+	c.shield_chance = 1.0
+	c.generate(s)
+	c.place_items(4, 1)
+	var values := c.items.values()
+	_check(values.count(Items.BEAR_TRAP) == 2 and values.count(Items.SHIELD) == 1,
+		"seed %d: due tagliole e uno scudo (%s)" % [s, values])
+	ok = true
+	for cell: Vector2i in c.items:
+		ok = ok and (a.items.get(cell) == c.items[cell] or not a.items.has(cell))
+		if c.items[cell] != Items.TORCH:
+			ok = ok and not c.rooms[0].has_point(cell) and cell != c.exit_cell
+	_check(ok, "seed %d: tagliole e scudo fuori dalla stanza d'ingresso, torce e acciarino al loro posto" % s)
+
 
 ## Su tanti seed e con ogni numero di torce: la stanza d'ingresso ha sempre la sua torcia a terra.
 ## (Il builder chiede sempre almeno una torcia: vedi DungeonBuilder.torches_for_floor.)

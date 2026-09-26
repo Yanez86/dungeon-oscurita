@@ -14,6 +14,8 @@ func _init() -> void:
 	_test_remove_and_count()
 	_test_take_and_select()
 	_test_changed_signal()
+	_test_replace()
+	_test_shield()
 	print("Test inventario: %s" % ("OK" if _failures == 0 else "%d FALLITI" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -66,6 +68,37 @@ func _test_changed_signal() -> void:
 	inv.take(1)           # vuoto: nessun segnale
 	inv.remove(It.TORCH)
 	_check(calls[0] == 2, "changed emesso solo quando cambia qualcosa (%d)" % calls[0])
+
+
+func _test_replace() -> void:
+	var inv := Inv.new(3)
+	inv.add(It.TORCH)
+	inv.add(It.SHIELD)
+	_check(inv.replace(It.SHIELD, It.SHIELD_CRACKED) and inv.slots[1] == It.SHIELD_CRACKED, "replace resta nello stesso slot")
+	_check(not inv.replace(It.FLINT, It.TORCH), "replace di un oggetto assente: falso")
+	_check(not inv.replace(It.TORCH, &"") and inv.slots[0] == It.TORCH, "replace non svuota uno slot")
+
+
+## Lo scudo para 1 danno per colpo: integro → incrinato → rotto (sparisce).
+func _test_shield() -> void:
+	var inv := Inv.new(5)
+	inv.add(It.FLINT)
+	inv.add(It.SHIELD)
+	_check(Shield.absorb(inv, 3) == Shield.Result.CRACKED and inv.slots[1] == It.SHIELD_CRACKED, "primo colpo: lo scudo si incrina")
+	_check(Shield.absorb(inv, 3) == Shield.Result.BROKEN and not inv.has(It.SHIELD_CRACKED), "secondo colpo: lo scudo si rompe")
+	_check(Shield.absorb(inv, 3) == Shield.Result.NONE and inv.count(&"") == 4, "senza scudo non para niente")
+	_check(Shield.absorb(inv, 0) == Shield.Result.NONE, "nessun danno, nessuna parata")
+
+	var two := Inv.new(5)
+	two.add(It.SHIELD)
+	two.add(It.SHIELD_CRACKED)
+	_check(Shield.absorb(two, 3) == Shield.Result.BROKEN and two.slots[0] == It.SHIELD, "si consuma prima lo scudo incrinato")
+	var hp := 10
+	var shield := Inv.new(5)
+	shield.add(It.SHIELD)
+	for hit in 4:
+		hp -= 3 - (Shield.BLOCK if Shield.absorb(shield, 3) != Shield.Result.NONE else 0)
+	_check(hp == 0, "con uno scudo quattro colpi del Cieco tolgono 2+2+3+3 = 10 punti (%d)" % hp)
 
 
 func _check(cond: bool, label: String) -> void:

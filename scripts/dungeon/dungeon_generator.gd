@@ -31,6 +31,8 @@ var start_room_size := Vector2i(3, 4)   ## lato minimo e massimo della stanza d'
 var start_wall_torches := 2             ## torce a muro nella stanza d'ingresso (sempre illuminata)
 var decorations_per_room := Vector2i(0, 3)  ## arredi per stanza (min, max), esclusa quella d'ingresso
 var enemy_min_distance := 12  ## passi minimi tra l'ingresso e la stanza di un nemico
+var shield_chance := 0.0      ## probabilità che il piano abbia uno scudo a terra
+var bear_trap_count := Vector2i.ZERO  ## tagliole a terra (min, max)
 
 var _rng := RandomNumberGenerator.new()
 
@@ -82,7 +84,8 @@ func generate(seed_value: int, max_rooms: int = 14) -> void:
 
 
 ## Una torcia a terra nella stanza d'ingresso (mai sotto i piedi del giocatore);
-## il resto sparso nelle altre stanze, mai sull'uscita.
+## il resto sparso nelle altre stanze, mai sull'uscita, con le tagliole (`bear_trap_count`) e, con probabilità
+## `shield_chance`, uno scudo.
 ## Va chiamata subito dopo generate(): continua lo stesso generatore casuale,
 ## quindi stesso seed + stessi conteggi = stessi oggetti negli stessi punti.
 func place_items(torch_count: int, flint_count: int) -> void:
@@ -101,6 +104,11 @@ func place_items(torch_count: int, flint_count: int) -> void:
 		to_place.append(Items.TORCH)
 	for i in flint_count:
 		to_place.append(Items.FLINT)
+	if bear_trap_count.y > 0:
+		for i in _rng.randi_range(bear_trap_count.x, bear_trap_count.y):
+			to_place.append(Items.BEAR_TRAP)
+	if shield_chance > 0.0 and _rng.randf() < shield_chance:
+		to_place.append(Items.SHIELD)
 	if rooms.size() < 2:
 		return
 	for id in to_place:
@@ -203,7 +211,7 @@ func distances_from(from: Vector2i) -> PackedInt32Array:
 	return dist
 
 
-## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, C Cieco, T torcia, A acciarino,
+## Mappa in testo: # muro, . pavimento, S ingresso, E uscita, C Cieco, T torcia, A acciarino, U scudo, X tagliola,
 ## D porta, L torcia a muro.
 func to_ascii() -> String:
 	var out := ""
@@ -215,6 +223,8 @@ func to_ascii() -> String:
 			elif enemies.has(c): out += "C"
 			elif items.get(c) == Items.TORCH: out += "T"
 			elif items.get(c) == Items.FLINT: out += "A"
+			elif items.get(c) == Items.SHIELD: out += "U"
+			elif items.get(c) == Items.BEAR_TRAP: out += "X"
 			elif doors.has(c): out += "D"
 			elif wall_torches.has(c): out += "L"
 			elif is_floor(c): out += "."

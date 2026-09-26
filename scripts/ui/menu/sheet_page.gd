@@ -9,6 +9,7 @@ var _health_pips := Pips.new()
 var _health_text := UiTheme.label("")
 var _torch := UiTheme.label("")
 var _spares := UiTheme.label("")
+var _shield := UiTheme.label("")
 var _space := UiTheme.label("")
 var _noise_pips: Array[Pips] = []
 
@@ -30,6 +31,7 @@ func _build() -> void:
 	_row(grid, "Energia", health_row)
 	_row(grid, "Torcia in mano", _torch)
 	_row(grid, "Torce di scorta", _spares)
+	_row(grid, "Scudo", _shield)
 	_row(grid, "Inventario", _space)
 
 	box.add_child(HSeparator.new())
@@ -72,6 +74,12 @@ func refresh() -> void:
 		_torch.text = "Nessuna: mani vuote"
 	var spares := player.inventory.count(Items.TORCH)
 	_spares.text = str(spares) if spares > 0 else "Nessuna"
+	if player.inventory.has(Items.SHIELD):
+		_shield.text = "Integro: para 1 danno per colpo, ancora 2 volte"
+	elif player.inventory.has(Items.SHIELD_CRACKED):
+		_shield.text = "Incrinato: para 1 danno ancora una volta"
+	else:
+		_shield.text = "Nessuno"
 	var inv := player.inventory
 	_space.text = "%d / %d posti liberi" % [inv.count(&""), inv.capacity()]
 

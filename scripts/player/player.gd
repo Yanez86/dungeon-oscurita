@@ -44,6 +44,8 @@ signal item_dropped(item: StringName, world_pos: Vector3)
 signal torch_dropped(world_pos: Vector3, fuel: float, max_fuel: float, lit: bool)
 ## Ha legato una corda per risalire dalla fossa: la botola la mostra appesa, per chi cade dopo.
 signal rope_hung
+## È arrivato un colpo: `damage` punti tolti, `blocked` parati dallo scudo. L'HUD fa lampeggiare lo schermo.
+signal hurt_taken(damage: int, blocked: int)
 
 const HEAD_STAND := 1.6
 const HEAD_CROUCH := 1.0
@@ -104,16 +106,34 @@ func note(text: String) -> void:
 	journal.add(Game.floor_number, text)
 
 
-## Unico ingresso dei danni (trappole, nemici): toglie energia, fa gridare (suono e rumore)
-## e ricorda la causa per il diario e la schermata di morte ("Ucciso da <cause>.").
-## Restituisce l'energia tolta davvero.
+## "da" + la causa, con la preposizione articolata: "il Cieco" → "dal Cieco", "una freccia" → "da una freccia".
+static func by_cause(cause: String) -> String:
+	for article: String in ["il ", "lo ", "la ", "i ", "gli ", "le "]:
+		if cause.begins_with(article):
+			return {"il ": "dal ", "lo ": "dallo ", "la ": "dalla ", "i ": "dai ", "gli ": "dagli ", "le ": "dalle "}[article] \
+				+ cause.substr(article.length())
+	if cause.begins_with("l'"):
+		return "dall'" + cause.substr(2)
+	return "da " + cause
+
+
+## Unico ingresso dei danni (trappole, nemici): lo scudo nell'inventario para 1 danno (vedi Shield),
+## il resto toglie energia e fa gridare (suono e rumore). Ricorda la causa (con l'articolo: "il Cieco")
+## per il diario e la schermata di morte ("Ucciso dal Cieco."). Restituisce l'energia tolta davvero.
 func hurt(amount: int, cause: String) -> int:
 	if amount <= 0 or health.is_dead():
 		return 0
+	var shield := Shield.absorb(inventory, amount)
+	var blocked := Shield.BLOCK if shield != Shield.Result.NONE else 0
+	if shield != Shield.Result.NONE:
+		_shield_blocked(shield == Shield.Result.BROKEN)
 	death_cause = cause  # prima del danno: se è l'ultimo, _on_died la legge già
-	var taken := health.damage(amount)
+	var taken := health.damage(amount - blocked)
 	if taken > 0:
 		_cry_out()
+	hurt_taken.emit(taken, blocked)
+	if taken > 0 and not health.is_dead():
+		note("Colpito %s: -%d energia." % [by_cause(cause), taken])
 	return taken
 
 
@@ -122,13 +142,21 @@ func kill(cause: String) -> void:
 	if health.is_dead():
 		return
 	death_cause = cause
-	health.damage(health.hp)
+	var taken := health.damage(health.hp)
 	_cry_out()
+	hurt_taken.emit(taken, 0)
 
 
 func _cry_out() -> void:
 	Sfx.play_at(self, &"player_hit", head.global_position)
 	NoiseBus.emit_noise(global_position, hurt_loudness, self)
+
+
+func _shield_blocked(broken: bool) -> void:
+	Sfx.play_at(self, &"shield_break" if broken else &"shield_block", head.global_position)
+	var text := "Lo scudo si rompe parando il colpo." if broken else "Lo scudo para parte del colpo e si incrina."
+	message.emit(text)
+	note(text)
 
 
 ## Accovacciati si passa sopra i fili tesi e sotto i dardi (vedi le trappole).
@@ -197,7 +225,7 @@ func _on_torch_burned_out() -> void:
 
 ## Energia a zero: la vista crolla di lato fino a terra. La schermata di fine la mostra main.gd.
 func _on_died() -> void:
-	note("Ucciso da %s." % death_cause if death_cause != "" else "Sei morto.")
+	note("Ucciso %s." % by_cause(death_cause) if death_cause != "" else "Sei morto.")
 	nearby_pickup = null
 	nearby_door = null
 	if _climb_tween:

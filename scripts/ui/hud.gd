@@ -25,9 +25,16 @@ var _slots := HBoxContainer.new()
 var _prompt := Label.new()
 var _message := Label.new()
 var _message_left := 0.0
+var _flash := ColorRect.new()  ## lampo a tutto schermo quando arriva un colpo
+var _flash_tween: Tween
 
 
 func _ready() -> void:
+	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.color = Color(0.6, 0.0, 0.0, 0.0)
+	add_child(_flash)
+
 	_slots.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, margin)
 	_slots.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_slots.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -71,6 +78,7 @@ func _set_player(p: Player) -> void:
 	torch_buff.torch = p.torch
 	menu.player = p
 	player.message.connect(_show_message)
+	player.hurt_taken.connect(_on_hurt)
 	player.inventory.changed.connect(_refresh_slots)
 	for i in player.inventory.capacity():
 		var slot := ItemSlot.new()
@@ -93,6 +101,15 @@ func _process(delta: float) -> void:
 
 	_message_left = maxf(_message_left - delta, 0.0)
 	_message.modulate.a = clampf(_message_left, 0.0, 1.0)  # dissolvenza nell'ultimo secondo
+
+
+## Un colpo: lo schermo lampeggia di rosso e sfuma. Se lo scudo ha parato tutto, un lampo chiaro e leggero.
+func _on_hurt(damage: int, _blocked: int) -> void:
+	_flash.color = Color(0.6, 0.0, 0.0, 0.45) if damage > 0 else Color(0.9, 0.85, 0.7, 0.2)
+	if _flash_tween:
+		_flash_tween.kill()
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(_flash, "color:a", 0.0, 0.8).set_ease(Tween.EASE_OUT)
 
 
 func _show_message(text: String) -> void:

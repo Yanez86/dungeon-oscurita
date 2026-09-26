@@ -43,7 +43,7 @@ func _ready() -> void:
 func appear(cause: String) -> void:
 	var secs := int(Game.run_time)
 	_details.text = "Piano %d  ·  %d:%02d nel buio" % [Game.floor_number, secs / 60, secs % 60]
-	_cause.text = "Ucciso da %s." % cause if cause != "" else ""
+	_cause.text = "Ucciso %s." % Player.by_cause(cause) if cause != "" else ""
 	_cause.visible = cause != ""
 	_seed.text = "seed %d" % Game.run_seed
 	visible = true

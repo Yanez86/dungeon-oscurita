@@ -50,6 +50,17 @@ func remove(id: StringName) -> bool:
 	return true
 
 
+## Sostituisce una copia di `old` con `new` nello stesso slot (per esempio lo scudo che si incrina).
+## Falso se `old` non c'è.
+func replace(old: StringName, new: StringName) -> bool:
+	var i := slots.rfind(old)
+	if i == -1 or new == &"":
+		return false
+	slots[i] = new
+	changed.emit()
+	return true
+
+
 ## Svuota lo slot indicato e restituisce cosa conteneva (&"" se era vuoto).
 func take(slot: int) -> StringName:
 	if slot < 0 or slot >= slots.size():
